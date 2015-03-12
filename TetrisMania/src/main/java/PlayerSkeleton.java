@@ -8,6 +8,7 @@ public class PlayerSkeleton {
 	}
 	
 	public static void main(String[] args) {
+    //TODO: Add in proper logging library instead of System.out.println
 		State s = new State();
 		new TFrame(s);
 		PlayerSkeleton p = new PlayerSkeleton();
