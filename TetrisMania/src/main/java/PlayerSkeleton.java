@@ -6,23 +6,32 @@ public class PlayerSkeleton {
 		
 		return 0;
 	}
+
+  public static int runState(boolean useGui) {
+    State s = new State();
+		if (useGui) {
+      new TFrame(s);
+    }
+    PlayerSkeleton p = new PlayerSkeleton();
+    while(!s.hasLost()) {
+      s.makeMove(p.pickMove(s,s.legalMoves()));
+      if (useGui) {
+        s.draw();
+        s.drawNext(0,0);
+      }
+      try {
+        Thread.sleep(300);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
+    return s.getRowsCleared();
+  }
 	
 	public static void main(String[] args) {
     //TODO: Add in proper logging library instead of System.out.println
-		State s = new State();
-		new TFrame(s);
-		PlayerSkeleton p = new PlayerSkeleton();
-		while(!s.hasLost()) {
-			s.makeMove(p.pickMove(s,s.legalMoves()));
-			s.draw();
-			s.drawNext(0,0);
-			try {
-				Thread.sleep(300);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
-		System.out.println("You have completed "+s.getRowsCleared()+" rows.");
+    int score = runState(false);
+		System.out.println("You have completed "+ score  +" rows.");
 	}
 	
 }
