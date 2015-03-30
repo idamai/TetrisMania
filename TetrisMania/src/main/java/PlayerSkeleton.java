@@ -4,7 +4,7 @@ import java.util.Vector;
 
 public class PlayerSkeleton {
 	private static int NUM_OF_RANDOM_CHROMOSOME = 16;
-
+	private static Random RANDOM_GENERATOR = new Random();
 	//implement this function to have a working system
 	public int pickMove(State s, int[][] legalMoves) {
 
@@ -19,15 +19,30 @@ public class PlayerSkeleton {
 	// param:  number of functions in 
 	public Vector<double[]> generateWeightChromosome(int N) {
 		Vector<double[]>  generatedWeights = new Vector<double[]>();
-		Random rand = new Random();
 		for (int i = 0; i < NUM_OF_RANDOM_CHROMOSOME; i++){
 			double[] weightArray = new double[N];
 			for (int j = 0; j< N; j++)
-				weightArray[j] = rand.nextDouble();
+				weightArray[j] = RANDOM_GENERATOR.nextDouble();
 			generatedWeights.add(weightArray);
 		}
 		return generatedWeights;
 	}
+	
+	// Reproduce function
+	// Generate random cutoff point
+	// And marry parent x to parent y
+	public double[] Reproduce(double[] x, double[] y, int N){
+		double[] child = new double[N];
+		int cutoff = (int) Math.floor(N * RANDOM_GENERATOR.nextDouble());
+		for (int i = 0; i <cutoff; i++){
+			child[i] = x[i];
+		}
+		for (int j = cutoff; j <N; j++){
+			child[j] = y[j];
+		}
+		return child;
+	}
+	
 	
     //TODO: Add in calculation of the features based on the state of the environment
     public double calculateFeature(double[] features){
