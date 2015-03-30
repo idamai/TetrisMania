@@ -51,12 +51,6 @@
             <artifactId>junit-dep</artifactId>
             <version>4.8.2</version>
         </dependency>
-        <dependency>
-            <groupId>Lab04g02A0108165J</groupId>
-            <artifactId>lab4</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
 </project>
