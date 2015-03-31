@@ -44,16 +44,35 @@ public class PlayerSkeleton {
 	}
 	
 	
-    //TODO: Add in calculation of the features based on the state of the environment
-    public double calculateFeature(double[] features){
-        return 0.0;
+    public void calculateFeature(double[] features, State s){
+        int i;
+        int maxHeight = 0;
+        int[] height = s.getTop();
+        int numCol = s.getField()[0].length;
+        int numRow = s.getField().length;
+        for (i=0; i < numCol; i++){       //copy the number of row
+            features[i] = height[i];
+            maxHeight = Math.max(height[i], maxHeight);
+            if (i+1 < numCol)
+                features[i+numCol] = Math.abs(height[i + 1] - height[i]);
+        }
+        features[i++] = maxHeight;
+        features[i] = 0;
+        for (int j = 0; j < numRow; j++){
+            for (int k = 0; k < height[j];k++){
+                if (s.getField()[j][k] == 0) {
+                    features[i]++;
+                }
+            }
+        }
+        return;
     }
 
     public double calculateHeuristic(double[] weights, State s){
         double sum = 0;
         double features[] = new double[22];
         features[0] = 1;
-        calculateFeature(features);
+        calculateFeature(features, s);
         for (int i = 0; i < weights.length; i++){
             sum += weights[i]*features[i];
         }
