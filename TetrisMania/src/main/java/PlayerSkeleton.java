@@ -5,6 +5,7 @@ import java.util.Vector;
 public class PlayerSkeleton {
 	private static int NUM_OF_RANDOM_CHROMOSOME = 16;
 	private static Random RANDOM_GENERATOR = new Random();
+	private double[] weights;
 	
 	/**
 	 * Agent's Strategy: picks a move (horizontal positioning and rotation applied to the falling object)
@@ -22,14 +23,14 @@ public class PlayerSkeleton {
 		final int ORIENT = State.ORIENT;
 		final int SLOT = State.SLOT;
 		
-		// initialise variables
+		// initialise variables for finding arg max (utility)
 		CloneState cState;
 		int orient = -1;
 		int slot = -1;
 		int currentReward = 0;
-		int currentHeuristic = 0;
-		int currentUtility = 0;
-		int bestUtility = currentUtility;
+		double currentHeuristic = 0;
+		double currentUtility = 0;
+		double bestUtility = currentUtility;
 		int[] currentAction = new int[2];
 		int[] bestAction = new int[2];
 		boolean bestFound = false;
@@ -41,7 +42,7 @@ public class PlayerSkeleton {
 			currentHeuristic = 0;
 			currentUtility = 0;
 			
-			// setting variables for calculating utility 
+			// Setting variables for calculating utility 
 			cState = new CloneState(s);
 			currentAction = legalMoves[n];
 			orient = currentAction[ORIENT];
@@ -49,15 +50,15 @@ public class PlayerSkeleton {
 			
 			// Given the set of moves, try a move which does not make us lose
 			if (cState.tryMakeMove(orient, slot)) {
-				currentReward = cState.getCCleared();
-				// need a method to get the heuristic value of a possible action 
-				//currentHeuristic = heuristic.function(orient, slot)
+				currentReward = cState.getCCleared(); 
+				currentHeuristic = calculateHeuristic(cState);
 				currentUtility = currentReward + currentHeuristic;
+				
+				// Keeping track of max utility and the respective action
 				if (currentUtility > bestUtility) {
 					if (!bestFound) {
 						bestFound = true;
 					}
-					
 					bestAction[ORIENT] = orient;
 					bestAction[SLOT] = slot;
 				}
@@ -107,12 +108,12 @@ public class PlayerSkeleton {
 	}
 	
 	
-    public void calculateFeature(double[] features, State s){
+    public void calculateFeature(double[] features, CloneState s){
         int i;
         int maxHeight = 0;
-        int[] height = s.getTop();
-        int numCol = s.getField()[0].length;
-        int numRow = s.getField().length;
+        int[] height = s.getCTop();
+        int numCol = s.getCField()[0].length;
+        int numRow = s.getCField().length;
         for (i=0; i < numCol; i++){       //copy the number of row
             features[i] = height[i];
             maxHeight = Math.max(height[i], maxHeight);
@@ -123,7 +124,7 @@ public class PlayerSkeleton {
         features[i] = 0;
         for (int j = 0; j < numRow; j++){
             for (int k = 0; k < height[j];k++){
-                if (s.getField()[j][k] == 0) {
+                if (s.getCField()[j][k] == 0) {
                     features[i]++;
                 }
             }
@@ -131,7 +132,7 @@ public class PlayerSkeleton {
         return;
     }
 
-    public double calculateHeuristic(double[] weights, State s){
+    public double calculateHeuristic(CloneState s){
         double sum = 0;
         double features[] = new double[22];
         features[0] = 1;
@@ -170,15 +171,12 @@ public class PlayerSkeleton {
 		
 	}
 		
-	
 	public class CloneState extends State {
-		private int[][] cField;
-		private int[] cTop; 
+		// cloned variables for determining utility value
+		private int cTurn;	
 		private int cCleared;
-		private int cTurn;
-	
-		
-		
+		private int[][] cField;
+		private int[] cTop; 			
 		
 		CloneState(State original) {
 			cTop = original.getTop().clone();
@@ -186,8 +184,6 @@ public class PlayerSkeleton {
 			cCleared = original.getRowsCleared();
 			cTurn = original.getTurnNumber();
 		}
-		
-		
 		
 		//returns false if you lose - true otherwise
 		public boolean tryMakeMove(int orient, int slot) {
@@ -205,12 +201,11 @@ public class PlayerSkeleton {
 				return false;
 			}
 
-			
 			//for each column in the piece - fill in the appropriate blocks
 			for(int i = 0; i < pWidth[nextPiece][orient]; i++) {
 				
 				//from bottom to cTop of brick
-				for(int h = height+getpBottom()[nextPiece][orient][i]; h < height+pTop[nextPiece][orient][i]; h++) {
+				for(int h = height+getpBottom()[nextPiece][orient][i]; h < height+getpTop()[nextPiece][orient][i]; h++) {
 					cField[h][i+slot] = cTurn;
 				}
 			}
@@ -245,16 +240,27 @@ public class PlayerSkeleton {
 						}
 						//lower the cTop
 						cTop[c]--;
-						while(cTop[c]>=1 && field[cTop[c]-1][c]==0)	cTop[c]--;
+						while(cTop[c]>=1 && cField[cTop[c]-1][c]==0)	cTop[c]--;
 					}
 				}
 			}
-		
 			return true;
+		}
+		
+		public int getCTurn() {
+			return cTurn;
 		}
 		
 		public int getCCleared() {
 			return cCleared;
+		}
+		
+		public int[][] getCField() {
+			return cField;
+		}
+		
+		public int[] getCTop() {
+			return cTop;
 		}
 	}
 	
