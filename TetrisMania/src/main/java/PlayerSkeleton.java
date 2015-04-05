@@ -5,10 +5,73 @@ import java.util.Vector;
 public class PlayerSkeleton {
 	private static int NUM_OF_RANDOM_CHROMOSOME = 16;
 	private static Random RANDOM_GENERATOR = new Random();
-	//implement this function to have a working system
-	public int pickMove(State s, int[][] legalMoves) {
-
-		return 0;
+	
+	/**
+	 * Agent's Strategy: picks a move (horizontal positioning and rotation applied to the falling object)
+	 * that maximises (reward + heuristic function)
+	 * 
+	 * @param State
+	 * @param legalMoves	int[n][a] where n is number of possible moves and a is the index of orient and action
+	 * 
+	 * @return move			int array [orient, slot]
+	 * 
+	 */
+	public int[] pickMove(State s, int[][] legalMoves) {
+		
+		// indices for legalMoves from State class 
+		final int ORIENT = State.ORIENT;
+		final int SLOT = State.SLOT;
+		
+		// initialise variables
+		CloneState cState;
+		int orient = -1;
+		int slot = -1;
+		int currentReward = 0;
+		int currentHeuristic = 0;
+		int currentUtility = 0;
+		int bestUtility = currentUtility;
+		int[] currentAction = new int[2];
+		int[] bestAction = new int[2];
+		boolean bestFound = false;
+		
+		// Calculate utility for every legal move in the given array
+		for (int n = 0; n < legalMoves.length; n++) {
+			// reset values
+			currentReward = 0;
+			currentHeuristic = 0;
+			currentUtility = 0;
+			
+			// setting variables for calculating utility 
+			cState = new CloneState(s);
+			currentAction = legalMoves[n];
+			orient = currentAction[ORIENT];
+			slot = currentAction[SLOT];
+			
+			// Given the set of moves, try a move which does not make us lose
+			if (cState.tryMakeMove(orient, slot)) {
+				currentReward = cState.getCCleared();
+				// need a method to get the heuristic value of a possible action 
+				//currentHeuristic = heuristic.function(orient, slot)
+				currentUtility = currentReward + currentHeuristic;
+				if (currentUtility > bestUtility) {
+					if (!bestFound) {
+						bestFound = true;
+					}
+					
+					bestAction[ORIENT] = orient;
+					bestAction[SLOT] = slot;
+				}
+			}
+		}
+		
+		// If best move is not available, it means all legal moves are losing moves.
+		// The first legal (losing) move is then returned
+		if (bestFound) {
+			return bestAction;
+		} else {
+			int[] losingMove = legalMoves[0];
+			return losingMove;
+		}
 	}
 	
 	// Genetic  algorithm
@@ -107,5 +170,94 @@ public class PlayerSkeleton {
 		
 	}
 		
+	
+	public class CloneState extends State {
+		private int[][] cField;
+		private int[] cTop; 
+		private int cCleared;
+		private int cTurn;
+	
+		
+		
+		
+		CloneState(State original) {
+			cTop = original.getTop().clone();
+			cField = original.getField().clone();
+			cCleared = original.getRowsCleared();
+			cTurn = original.getTurnNumber();
+		}
+		
+		
+		
+		//returns false if you lose - true otherwise
+		public boolean tryMakeMove(int orient, int slot) {
+			cTurn++;
+			//height if the first column makes contact
+			int height = cTop[slot]-getpBottom()[nextPiece][orient][0];
+			//for each column beyond the first in the piece
+			for(int c = 1; c < pWidth[nextPiece][orient];c++) {
+				height = Math.max(height,cTop[slot+c]-getpBottom()[nextPiece][orient][c]);
+			}
+			
+			//check if game ended
+			if(height+getpHeight()[nextPiece][orient] >= ROWS) {
+				lost = true;
+				return false;
+			}
+
+			
+			//for each column in the piece - fill in the appropriate blocks
+			for(int i = 0; i < pWidth[nextPiece][orient]; i++) {
+				
+				//from bottom to cTop of brick
+				for(int h = height+getpBottom()[nextPiece][orient][i]; h < height+pTop[nextPiece][orient][i]; h++) {
+					cField[h][i+slot] = cTurn;
+				}
+			}
+			
+			//adjust cTop
+			for(int c = 0; c < pWidth[nextPiece][orient]; c++) {
+				cTop[slot+c]=height+getpTop()[nextPiece][orient][c];
+			}
+			
+			int rowsCleared = 0;
+			
+			//check for full rows - starting at the cTop
+			for(int r = height+getpHeight()[nextPiece][orient]-1; r >= height; r--) {
+				//check all columns in the row
+				boolean full = true;
+				for(int c = 0; c < COLS; c++) {
+					if(cField[r][c] == 0) {
+						full = false;
+						break;
+					}
+				}
+				//if the row was full - remove it and slide above stuff down
+				if(full) {
+					rowsCleared++;
+					cCleared++;
+					//for each column
+					for(int c = 0; c < COLS; c++) {
+
+						//slide down all bricks
+						for(int i = r; i < cTop[c]; i++) {
+							cField[i][c] = cField[i+1][c];
+						}
+						//lower the cTop
+						cTop[c]--;
+						while(cTop[c]>=1 && field[cTop[c]-1][c]==0)	cTop[c]--;
+					}
+				}
+			}
+		
+			return true;
+		}
+		
+		public int getCCleared() {
+			return cCleared;
+		}
+	}
+	
+	
 	
 }
