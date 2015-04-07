@@ -143,26 +143,26 @@ public class PlayerSkeleton {
         return sum;
     }
 
-  public static int runState(boolean useGui) {
-    State s = new State();
-		if (useGui) {
-      new TFrame(s);
-    }
-    PlayerSkeleton p = new PlayerSkeleton();
-    while(!s.hasLost()) {
-      s.makeMove(p.pickMove(s,s.legalMoves()));
-      if (useGui) {
-        s.draw();
-        s.drawNext(0,0);
+
+  public static int runState() {
+    final PlayerSkeleton p = new PlayerSkeleton();
+    Game g = new Game(false, 20); // create headless game with 20ms tick delay
+
+    g.run(new Game.Callback() {
+      /** Implement the below **/
+      public int[] execute(Game g, State s) {
+        int[] nextMove = p.pickMove(s, s.legalMoves());
+        return nextMove;
       }
-      Core.sleep(20);
-    }
-    return s.getRowsCleared();
+    });
+
+    return g.score();
   }
+
 
 	public static void main(String[] args) {
 	    //TODO: Add in proper logging library instead of System.out.println
-	    int score = runState(false);
+	    int score = runState();
 		System.out.println("You have completed "+ score  +" rows.");
 		
 	}
