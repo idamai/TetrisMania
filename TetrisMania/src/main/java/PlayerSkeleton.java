@@ -5,13 +5,13 @@ import java.util.Vector;
 public class PlayerSkeleton {
 	private static int NUM_OF_RANDOM_CHROMOSOME = 16;
 	private static Random RANDOM_GENERATOR = new Random();
-	private double[] weights;
+	private double[] weights = new double[22];
 	
 	/**
 	 * Agent's Strategy: picks a move (horizontal positioning and rotation applied to the falling object)
 	 * that maximises (reward + heuristic function)
 	 * 
-	 * @param State
+	 * @param s
 	 * @param legalMoves	int[n][a] where n is number of possible moves and a is the index of orient and action
 	 * 
 	 * @return move			int array [orient, slot]
@@ -112,8 +112,8 @@ public class PlayerSkeleton {
         int i;
         int maxHeight = 0;
         int[] height = s.getCTop();
-        int numCol = s.getCField()[0].length;
-        int numRow = s.getCField().length;
+		int numRow = s.getCField().length;
+		int numCol = s.getCField()[0].length;
         for (i=0; i < numCol; i++){       //copy the number of row
             features[i] = height[i];
             maxHeight = Math.max(height[i], maxHeight);
@@ -122,9 +122,9 @@ public class PlayerSkeleton {
         }
         features[i++] = maxHeight;
         features[i] = 0;
-        for (int j = 0; j < numRow; j++){
+        for (int j = 0; j < numCol; j++){
             for (int k = 0; k < height[j];k++){
-                if (s.getCField()[j][k] == 0) {
+                if (s.getCField()[k][j] == 0) {
                     features[i]++;
                 }
             }
@@ -132,6 +132,11 @@ public class PlayerSkeleton {
         return;
     }
 
+	//Based on the default heuristic mentioned in project assignment.
+	//features 0 - 9 :10 columns height of the wall.
+	//features 10 - 18: absolute difference in height of adjacent walls.
+	//feature 20: maximum column height.
+	//feature 21: number of holes in the wall.
     public double calculateHeuristic(CloneState s){
         double sum = 0;
         double features[] = new double[22];
