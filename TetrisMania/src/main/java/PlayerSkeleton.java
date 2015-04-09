@@ -171,6 +171,51 @@ public class PlayerSkeleton {
 		System.out.println("You have completed "+ score  +" rows.");
 		
 	}
-
+	
+	
+	public static void generateTrainData(String[] args){
+	    //generateScores("sim_wgts/sim_wgt_space_100.txt",100);
+	    return;
+	  }
+	  
+	  public static int generateScores(String sim_wgts_filename, int numSamples){
+	    double[] scores = new double[numSamples];
+	    try{
+	      File sim_wgts = new File(sim_wgts_filename);
+	      if(sim_wgts.exists()){
+	        Scanner sc = new Scanner(sim_wgts);
+	        int sampleNum = 0;
+	        while(sc.hasNext()){
+	          String line = new String(sc.nextLine());
+	          String[] str_wgt = line.split(" ");
+	          
+	          double[] double_wgt = new double[21];
+	          int i;
+	          for(i=0; i < 21; i++){
+	            double_wgt[i] = Double.parseDouble(str_wgt[i]);
+	
+	          }
+	          // *** function call to play game here: *** //
+	          //scores[sampleNum] = runState();
+	          sampleNum++;
+	        }
+	        sc.close();
+	      }
+	    }catch(FileNotFoundException fnfe){
+	      System.out.println(fnfe.getMessage());
+	    }
+	    
+	    // export scores
+	    try(PrintStream output = new PrintStream(new File("scores.txt"));){
+	      for(int i=0; i<scores.length;i++){
+	        output.println(scores[i]);
+	      }
+	      output.close();
+	    }catch(FileNotFoundException fnfe){
+	      System.out.println(fnfe.getMessage());
+	    }
+	    
+	    return 0;
+	  }
 
 }
