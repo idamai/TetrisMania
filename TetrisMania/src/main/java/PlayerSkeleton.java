@@ -37,6 +37,7 @@ public class PlayerSkeleton {
 		
 		// Calculate utility for every legal move in the given array
 		for (int n = 0; n < legalMoves.length; n++) {
+			System.out.println(n);
 			// reset values
 			currentReward = 0;
 			currentHeuristic = 0;
@@ -48,6 +49,9 @@ public class PlayerSkeleton {
 			orient = currentAction[ORIENT];
 			slot = currentAction[SLOT];
 			
+			assert(cState.getCPiece() == s.getNextPiece());
+			assert(cState.cLegalMoves()[n][ORIENT] == orient);
+			assert(cState.cLegalMoves()[n][SLOT] == slot);
 			// Given the set of moves, try a move which does not make us lose
 			if (cState.tryMakeMove(orient, slot)) {
 				currentReward = cState.getCCleared(); 
