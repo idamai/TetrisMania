@@ -1,5 +1,11 @@
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintStream;
+import java.util.Arrays;
 import java.util.Random;
+import java.util.Scanner;
 import java.util.Vector;
+import java.util.logging.Logger;
 
 
 public class PlayerSkeleton {
@@ -7,6 +13,7 @@ public class PlayerSkeleton {
 	private static Random RANDOM_GENERATOR = new Random();
 	private double[] weights = new double[22];
 	
+	private final static Logger LOGGER = Logger.getLogger(PlayerSkeleton.class.getName());
 	/**
 	 * Agent's Strategy: picks a move (horizontal positioning and rotation applied to the falling object)
 	 * that maximises (reward + heuristic function)
@@ -18,6 +25,10 @@ public class PlayerSkeleton {
 	 * 
 	 */
 	public int[] pickMove(State s, int[][] legalMoves) {
+		final String LOG_BEST_VALUES = "bU: %1$s cU %2$s cH: %3$s cR: %3$s";
+		final String LOG_BEST_MOVE = "BEST move picked: %1$s";
+		final String LOG_EQUAL_MOVE = "FIRST move picked: %1$s (Equal utility values)";
+		final String LOG_LOSING_MOVE = "LOSING move picked: %1$s";
 		
 		// indices for legalMoves from State class 
 		final int ORIENT = State.ORIENT;
@@ -32,12 +43,12 @@ public class PlayerSkeleton {
 		double currentUtility = 0;
 		double bestUtility = currentUtility;
 		int[] currentAction = new int[2];
-		int[] bestAction = new int[2];
+		int[] bestMove = new int[2];
 		boolean bestFound = false;
+		boolean lastMove = true;
 		
 		// Calculate utility for every legal move in the given array
 		for (int n = 0; n < legalMoves.length; n++) {
-			System.out.println(n);
 			// reset values
 			currentReward = 0;
 			currentHeuristic = 0;
@@ -54,6 +65,7 @@ public class PlayerSkeleton {
 			assert(cState.cLegalMoves()[n][SLOT] == slot);
 			// Given the set of moves, try a move which does not make us lose
 			if (cState.tryMakeMove(orient, slot)) {
+				lastMove = false;
 				currentReward = cState.getCCleared(); 
 				currentHeuristic = calculateHeuristic(cState);
 				currentUtility = currentReward + currentHeuristic;
@@ -63,20 +75,30 @@ public class PlayerSkeleton {
 					if (!bestFound) {
 						bestFound = true;
 					}
-					bestAction[ORIENT] = orient;
-					bestAction[SLOT] = slot;
+					LOGGER.info(String.format(LOG_BEST_VALUES, bestUtility, currentUtility, currentHeuristic, currentReward));
+					bestMove[ORIENT] = orient;
+					bestMove[SLOT] = slot;
+					bestUtility = currentUtility;
 				}
 			}
 		}
 		
-		// If best move is not available, it means all legal moves are losing moves.
-		// The first legal (losing) move is then returned
-		if (bestFound) {
-			return bestAction;
-		} else {
+		// all of the legal moves end the game
+		if (lastMove) {
 			int[] losingMove = legalMoves[0];
+			LOGGER.fine(String.format(LOG_LOSING_MOVE, Arrays.toString(losingMove)));
 			return losingMove;
 		}
+
+		if (bestFound) {
+			LOGGER.fine(String.format(LOG_BEST_MOVE, Arrays.toString(bestMove)));
+			return bestMove;	
+		} else {
+			// all moves have some utility value, pick the first legal move
+			int[] firstMove = legalMoves[0];
+			LOGGER.fine(String.format(LOG_EQUAL_MOVE, Arrays.toString(firstMove)));
+			return firstMove;
+		}		
 	}
 	
 	// Genetic  algorithm

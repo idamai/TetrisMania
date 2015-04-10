@@ -15,30 +15,33 @@ public class CloneState extends State {
 
 	CloneState(State original) {
 		cTop = original.getTop().clone();
-		cField = original.getField().clone();
+		cField = deepClone2D(original.getField());
 		cCleared = original.getRowsCleared();
 		cTurn = original.getTurnNumber();
 		cNextPiece = original.getNextPiece();
-		cLegalMoves = original.legalMoves();
+		cLegalMoves = deepClone2D(original.legalMoves());
 	}
-	
+
+	private int[][] deepClone2D(int[][] array) {
+		int[][] copy = array.clone();
+		for (int i = 0; i < copy.length; i++) {
+			copy[i] = array[i].clone();
+		}
+		return copy;
+	}
+
 	//returns false if you lose - true otherwise
 	public boolean tryMakeMove(int orient, int slot) {
 		cTurn++;
 		//height if the first column makes contact
 		int height = cTop[slot]-getpBottom()[cNextPiece][orient][0];
+
 		//for each column beyond the first in the piece
 		for(int c = 1; c < pWidth[cNextPiece][orient];c++) {
 			height = Math.max(height,cTop[slot+c]-getpBottom()[cNextPiece][orient][c]);
-			//TODO: need understand why height can go negative.
-			if (height < 0) {
-				LOGGER.warning("height is negative.");
-				LOGGER.info("height: " + height);
-			}
-			assert(height >= 0);
-			
 		}
-		
+
+
 		//check if game ended
 		if(height+getpHeight()[cNextPiece][orient] >= ROWS) {
 			lost = true;
@@ -106,11 +109,11 @@ public class CloneState extends State {
 	public int[] getCTop() {
 		return cTop;
 	}
-	
+
 	public int getCPiece() {
 		return cNextPiece;
 	}
-	
+
 	public int[][] cLegalMoves() {
 		return cLegalMoves;
 	}
