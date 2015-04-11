@@ -11,7 +11,7 @@ import java.util.logging.Logger;
 public class PlayerSkeleton {
 	private static int NUM_OF_RANDOM_CHROMOSOME = 16;
 	private static Random RANDOM_GENERATOR = new Random();
-	private double[] weights = new double[22];
+	// private double[] weights = new double[22];
 	
 	private final static Logger LOGGER = Logger.getLogger(PlayerSkeleton.class.getName());
 	/**
@@ -24,7 +24,7 @@ public class PlayerSkeleton {
 	 * @return move			int array [orient, slot]
 	 * 
 	 */
-	public int[] pickMove(State s, int[][] legalMoves) {
+	public int[] pickMove(State s, double[] weights, int[][] legalMoves) {
 		final String LOG_BEST_VALUES = "bU: %1$s cU %2$s cH: %3$s cR: %3$s";
 		final String LOG_BEST_MOVE = "BEST move picked: %1$s";
 		final String LOG_EQUAL_MOVE = "FIRST move picked: %1$s (Equal utility values)";
@@ -67,7 +67,7 @@ public class PlayerSkeleton {
 			if (cState.tryMakeMove(orient, slot)) {
 				lastMove = false;
 				currentReward = cState.getCCleared(); 
-				currentHeuristic = calculateHeuristic(cState);
+				currentHeuristic = calculateHeuristic(weights, cState);
 				currentUtility = currentReward + currentHeuristic;
 				
 				// Keeping track of max utility and the respective action
@@ -133,6 +133,19 @@ public class PlayerSkeleton {
 		return child;
 	}
 	
+	// Genetic Algorithm
+	// GeneticAlgorithm Function
+	// param: chromosome of weights
+	public double[] GeneticAlgorithm(Vector<double[]> weightChromosomes){
+		//fitness function is the test of the game
+		//run 
+		int currentFittest;
+		double[] currentBestWeights;
+		
+		return new double[16];
+		
+	}
+	
 	
     public void calculateFeature(double[] features, CloneState s){
         int i;
@@ -163,7 +176,7 @@ public class PlayerSkeleton {
 	//features 10 - 18: absolute difference in height of adjacent walls.
 	//feature 20: maximum column height.
 	//feature 21: number of holes in the wall.
-    public double calculateHeuristic(CloneState s){
+    public double calculateHeuristic(double[] weights, CloneState s){
         double sum = 0;
         double features[] = new double[22];
         features[0] = 1;
@@ -175,14 +188,14 @@ public class PlayerSkeleton {
     }
 
 
-  public static int runState() {
+  public static int runState(final double[] weights) {
     final PlayerSkeleton p = new PlayerSkeleton();
     Game g = new Game(false, 20); // create headless game with 20ms tick delay
 
     g.run(new Game.Callback() {
       /** Implement the below **/
       public int[] execute(Game g, State s) {
-        int[] nextMove = p.pickMove(s, s.legalMoves());
+        int[] nextMove = p.pickMove(s,weights, s.legalMoves());
         return nextMove;
       }
     });
@@ -193,8 +206,9 @@ public class PlayerSkeleton {
 
 	public static void main(String[] args) {
 	    //TODO: Add in proper logging library instead of System.out.println
-	    int score = runState();
-		System.out.println("You have completed "+ score  +" rows.");
+	    //int score = runState(null);
+		//System.out.println("You have completed "+ score  +" rows.");
+		// run genetic algo here
 		
 	}
 	
