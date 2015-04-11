@@ -161,11 +161,11 @@ public class PlayerSkeleton {
 	//Based on the default heuristic mentioned in project assignment.
 	//features 0 - 9 :10 columns height of the wall.
 	//features 10 - 18: absolute difference in height of adjacent walls.
-	//feature 20: maximum column height.
-	//feature 21: number of holes in the wall.
+	//feature 19: maximum column height.
+	//feature 20: number of holes in the wall.
     public double calculateHeuristic(CloneState s){
         double sum = 0;
-        double features[] = new double[22];
+        double features[] = new double[21];
         features[0] = 1;
         calculateFeature(features, s);
         for (int i = 0; i < weights.length; i++){
