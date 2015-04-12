@@ -1,5 +1,7 @@
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
@@ -11,7 +13,7 @@ import java.util.logging.Logger;
 
 
 public class PlayerSkeleton {
-	private static int NUM_OF_RANDOM_CHROMOSOME = 1000;
+	private static int NUM_OF_RANDOM_CHROMOSOME = 100000;
 	private static Random RANDOM_GENERATOR = new Random();
 	// private double[] weights = new double[22];
 	
@@ -145,15 +147,14 @@ public class PlayerSkeleton {
 	// Genetic Algorithm
 	// GeneticAlgorithm Function
 	// param: chromosome of weights
-	public static double[] GeneticAlgorithm(Vector<double[]> weightChromosomes) throws FileNotFoundException, UnsupportedEncodingException{
-		PrintWriter writer = new PrintWriter("/ai/geneticalgolog.txt", "UTF-8");
+	public static double[] GeneticAlgorithm(Vector<double[]> weightChromosomes) throws IOException{
+		PrintWriter writer = new PrintWriter(new FileWriter("geneticalgolog.txt", true),true);
 		
 		//fitness function is the test of the game
 		//run 
 		Vector<WeightsFitnessPair>  weightChromosomePopulation = new Vector<WeightsFitnessPair>(); 
 		// round fittest will denote current checked round fitness
 		int roundFittest=Integer.MIN_VALUE;
-		int currentFittest = Integer.MIN_VALUE;
 		
 		WeightsFitnessPair currentFittestPair = null;
 		
@@ -164,19 +165,22 @@ public class PlayerSkeleton {
 			weightChromosomePopulation.add(weightsFitnessPair);
 			if (weightsFitness > roundFittest){
 				roundFittest = weightsFitness;
-				currentFittest = roundFittest;
 				currentFittestPair = weightsFitnessPair;
 			}
 			//make sure at least its initialized
 			if (currentFittestPair == null)
 				currentFittestPair= weightsFitnessPair;
 		}
+		writer.println("Original Fittest:");
 		writer.println(currentFittestPair.toString());
+		int localMaximaRetry = 0;
 		// Re run until found the fittest
 		// try to escape from local maxima by allowing degrading by going down 10%
-		while (roundFittest > (0.8 * currentFittest)){
+		int counter = 0;
+		while (roundFittest >= ( 0.9 * currentFittestPair.getFitness()) && localMaximaRetry < 100 ){
 			Vector<WeightsFitnessPair> newPopulation = new Vector<WeightsFitnessPair>();
 			roundFittest = Integer.MIN_VALUE;
+			WeightsFitnessPair roundFittestPair = null;
 			for (int i = 0; i < weightChromosomePopulation.size(); i++){
 				//Choose 4 parents candidate
 				int candidateAIdx = (int) Math.floor(weightChromosomePopulation.size() * RANDOM_GENERATOR.nextDouble());
@@ -213,18 +217,24 @@ public class PlayerSkeleton {
 				double[] childWeights = Reproduce(parentX.getWeights(), parentY.getWeights(), parentX.getWeights().length);
 				int childFitness= runState(childWeights);
 				WeightsFitnessPair childFitnessPair = new WeightsFitnessPair(childWeights, childFitness);
-				if (childFitness > roundFittest)
+				if (childFitness > roundFittest){
 					roundFittest = childFitness;
-				if (childFitness > currentFittest){
-					currentFittest = childFitness;
-					currentFittestPair = childFitnessPair;
+					roundFittestPair = childFitnessPair;
 				}
+				if (roundFittestPair == null)
+					roundFittestPair = childFitnessPair;
 				newPopulation.add(childFitnessPair);
 			}
+			if (roundFittestPair.getFitness() > currentFittestPair.getFitness()){
+				currentFittestPair = roundFittestPair;
+				localMaximaRetry = 0;
+			} else
+				localMaximaRetry++;
+			counter++;
 			weightChromosomePopulation = newPopulation;
-			writer.println("Fittest after this round:");
+			writer.println("Fittest after round "+counter+":");
 			writer.println(currentFittestPair.toString());
-		}		
+		}
 		writer.close();
 		return currentFittestPair.getWeights();
 		
@@ -296,10 +306,7 @@ public class PlayerSkeleton {
 		Vector<double[]> weightChromosomes = generateWeightChromosome(22);
 		try {
 			GeneticAlgorithm(weightChromosomes);
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (UnsupportedEncodingException e) {
+		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
@@ -375,7 +382,7 @@ class WeightsFitnessPair {
 		String str = "This weights pair details are as follows:\n";
 		for (int i = 0; i<weights.length;i++){
 			str+=weights[i];
-			if (i!= weights.length-1);
+			if (i!= weights.length-1)
 				str+=", ";
 		}
 		str+="\n With a score of ";
