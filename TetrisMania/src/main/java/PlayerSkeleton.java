@@ -4,10 +4,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
-import java.util.Arrays;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.Vector;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
 
@@ -182,7 +183,7 @@ public class PlayerSkeleton {
 		//run
 		Vector<WeightsFitnessPair>  weightChromosomePopulation = new Vector<WeightsFitnessPair>();
 		// round fittest will denote current checked round fitness
-		int roundFittest=Integer.MIN_VALUE;
+		final int[] roundFittest = {Integer.MIN_VALUE};
 
 		WeightsFitnessPair currentFittestPair = null;
 
@@ -191,8 +192,8 @@ public class PlayerSkeleton {
 			int weightsFitness = runState(weightChromosomes.get(i));
 			WeightsFitnessPair weightsFitnessPair = new WeightsFitnessPair(weightChromosomes.get(i), weightsFitness);
 			weightChromosomePopulation.add(weightsFitnessPair);
-			if (weightsFitness > roundFittest){
-				roundFittest = weightsFitness;
+			if (weightsFitness > roundFittest[0]){
+				roundFittest[0] = weightsFitness;
 				currentFittestPair = weightsFitnessPair;
 			}
 			//make sure at least its initialized
@@ -205,56 +206,66 @@ public class PlayerSkeleton {
 		// Re run until found the fittest
 		// try to escape from local maxima by allowing degrading by going down 10%
 		int counter = 0;
-		while (roundFittest >= ( 0.9 * currentFittestPair.getFitness()) && localMaximaRetry < 100 ){
-			Vector<WeightsFitnessPair> newPopulation = new Vector<WeightsFitnessPair>();
-			roundFittest = Integer.MIN_VALUE;
-			WeightsFitnessPair roundFittestPair = null;
+		while (roundFittest[0] >= ( 0.9 * currentFittestPair.getFitness()) && localMaximaRetry < 100 ){
+			final Vector<WeightsFitnessPair> newPopulation = new Vector<WeightsFitnessPair>();
+			roundFittest[0] = Integer.MIN_VALUE;
+			final WeightsFitnessPair[] roundFittestPair = {null};
+			ExecutorService taskExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+			final Vector<WeightsFitnessPair> finalWeightChromosomePopulation = weightChromosomePopulation;
 			for (int i = 0; i < weightChromosomePopulation.size(); i++){
-				//Choose 4 parents candidate
-				int candidateAIdx = (int) Math.floor(weightChromosomePopulation.size() * RANDOM_GENERATOR.nextDouble());
-				int candidateBIdx = (int) Math.floor(weightChromosomePopulation.size() * RANDOM_GENERATOR.nextDouble());
-				int candidateCIdx = (int) Math.floor(weightChromosomePopulation.size() * RANDOM_GENERATOR.nextDouble());
-				int candidateDIdx = (int) Math.floor(weightChromosomePopulation.size() * RANDOM_GENERATOR.nextDouble());
-				//Ensure none of them out of bounds
-				if (candidateAIdx > weightChromosomePopulation.size()-1)
-					candidateAIdx--;
-				if (candidateBIdx > weightChromosomePopulation.size()-1)
-					candidateBIdx--;
-				if (candidateCIdx > weightChromosomePopulation.size()-1)
-					candidateCIdx--;
-				if (candidateDIdx > weightChromosomePopulation.size()-1)
-					candidateDIdx--;
-				//simulate probability of fitness function using "tournament" styleS
-				WeightsFitnessPair candidateA = weightChromosomePopulation.get(candidateAIdx);
-				WeightsFitnessPair candidateB = weightChromosomePopulation.get(candidateBIdx);
-				WeightsFitnessPair candidateC = weightChromosomePopulation.get(candidateCIdx);
-				WeightsFitnessPair candidateD = weightChromosomePopulation.get(candidateDIdx);
+				taskExecutor.submit(new Runnable() {
+					@Override
+					public void run() {
+						//Choose 4 parents candidate
+						int candidateAIdx = (int) Math.floor(finalWeightChromosomePopulation.size() * RANDOM_GENERATOR.nextDouble());
+						int candidateBIdx = (int) Math.floor(finalWeightChromosomePopulation.size() * RANDOM_GENERATOR.nextDouble());
+						int candidateCIdx = (int) Math.floor(finalWeightChromosomePopulation.size() * RANDOM_GENERATOR.nextDouble());
+						int candidateDIdx = (int) Math.floor(finalWeightChromosomePopulation.size() * RANDOM_GENERATOR.nextDouble());
+						//Ensure none of them out of bounds
+						if (candidateAIdx > finalWeightChromosomePopulation.size() - 1)
+							candidateAIdx--;
+						if (candidateBIdx > finalWeightChromosomePopulation.size() - 1)
+							candidateBIdx--;
+						if (candidateCIdx > finalWeightChromosomePopulation.size() - 1)
+							candidateCIdx--;
+						if (candidateDIdx > finalWeightChromosomePopulation.size() - 1)
+							candidateDIdx--;
+						//simulate probability of fitness function using "tournament" styleS
+						WeightsFitnessPair candidateA = finalWeightChromosomePopulation.get(candidateAIdx);
+						WeightsFitnessPair candidateB = finalWeightChromosomePopulation.get(candidateBIdx);
+						WeightsFitnessPair candidateC = finalWeightChromosomePopulation.get(candidateCIdx);
+						WeightsFitnessPair candidateD = finalWeightChromosomePopulation.get(candidateDIdx);
 
-				WeightsFitnessPair parentX;
-				WeightsFitnessPair parentY;
-				if (candidateA.getFitness() > candidateB.getFitness())
-					parentX = candidateA;
-				else
-					parentX = candidateB;
+						WeightsFitnessPair parentX;
+						WeightsFitnessPair parentY;
+						if (candidateA.getFitness() > candidateB.getFitness())
+							parentX = candidateA;
+						else
+							parentX = candidateB;
 
-				if (candidateC.getFitness() > candidateD.getFitness())
-					parentY = candidateC;
-				else
-					parentY = candidateD;
+						if (candidateC.getFitness() > candidateD.getFitness())
+							parentY = candidateC;
+						else
+							parentY = candidateD;
 
-				double[] childWeights = Reproduce(parentX.getWeights(), parentY.getWeights(), parentX.getWeights().length);
-				int childFitness= runState(childWeights);
-				WeightsFitnessPair childFitnessPair = new WeightsFitnessPair(childWeights, childFitness);
-				if (childFitness > roundFittest){
-					roundFittest = childFitness;
-					roundFittestPair = childFitnessPair;
-				}
-				if (roundFittestPair == null)
-					roundFittestPair = childFitnessPair;
-				newPopulation.add(childFitnessPair);
+						double[] childWeights = Reproduce(parentX.getWeights(), parentY.getWeights(), parentX.getWeights().length);
+						int childFitness = runState(childWeights);
+						WeightsFitnessPair childFitnessPair = new WeightsFitnessPair(childWeights, childFitness);
+						//make sure of consistency
+						synchronized (roundFittest) {
+							if (childFitness > roundFittest[0]) {
+								roundFittest[0] = childFitness;
+								roundFittestPair[0] = childFitnessPair;
+							}
+							if (roundFittestPair[0] == null)
+								roundFittestPair[0] = childFitnessPair;
+							newPopulation.add(childFitnessPair);
+						}
+					}
+				});
 			}
-			if (roundFittestPair.getFitness() > currentFittestPair.getFitness()){
-				currentFittestPair = roundFittestPair;
+			if (roundFittestPair[0].getFitness() > currentFittestPair.getFitness()) {
+				currentFittestPair = roundFittestPair[0];
 				localMaximaRetry = 0;
 			} else
 				localMaximaRetry++;
