@@ -18,6 +18,7 @@ import java.util.logging.Logger;
 public class PlayerSkeleton {
 	private static int NUM_OF_RANDOM_CHROMOSOME = 5000;
 	private static Random RANDOM_GENERATOR = new Random();
+	private static int highscoreRowCleared = 0;
 	// private double[] weights = new double[22];
 
 	private final static Logger LOGGER = Logger.getLogger(PlayerSkeleton.class.getName());
@@ -32,10 +33,8 @@ public class PlayerSkeleton {
 	 *
 	 */
 	public int[] pickMove(State s, double[] weights, int[][] legalMoves) {
-		final String LOG_BEST_VALUES = "bU: %1$s cU %2$s cH: %3$s cR: %3$s";
-		final String LOG_BEST_MOVE = "BEST move picked: %1$s";
-		final String LOG_EQUAL_MOVE = "FIRST move picked: %1$s (Equal utility values)";
-		final String LOG_LOSING_MOVE = "LOSING move picked: %1$s";
+		final String LOG_ROWS_CLEARED = "Highscore: %1$s. Current: %2$s";
+		final String LOG_LOSING_MOVE = "GAME LOST. TURN: %1$s";
 
 		// indices for legalMoves from State class
 		final int ORIENT = State.ORIENT;
@@ -51,16 +50,11 @@ public class PlayerSkeleton {
 		double bestUtility = currentUtility;
 		int[] currentAction = new int[2];
 		int[] bestMove = new int[2];
-		boolean bestFound = false;
+		int nextMoveRowsCleared = 0;
 		boolean lastMove = true;
 
 		// Calculate utility for every legal move in the given array
 		for (int n = 0; n < legalMoves.length; n++) {
-			// reset values
-			currentReward = 0;
-			currentHeuristic = 0;
-			currentUtility = 0;
-
 			// Setting variables for calculating utility
 			cState = new CloneState(s);
 			currentAction = legalMoves[n];
@@ -70,26 +64,22 @@ public class PlayerSkeleton {
 			assert(cState.getCPiece() == s.getNextPiece());
 			assert(cState.cLegalMoves()[n][ORIENT] == orient);
 			assert(cState.cLegalMoves()[n][SLOT] == slot);
+
 			// Given the set of moves, try a move which does not make us lose
 			if (cState.tryMakeMove(orient, slot)) {
 				lastMove = false;
 				currentReward = cState.getCCleared();
 				currentHeuristic = calculateHeuristic(weights, cState);
-				currentUtility = currentReward + currentHeuristic;
+				currentUtility = currentHeuristic - currentReward;
 
-				if (!bestFound){
-					LOGGER.info(String.format(LOG_BEST_VALUES, bestUtility, currentUtility, currentHeuristic, currentReward));
-					bestMove[ORIENT] = orient;
-					bestMove[SLOT] = slot;
-					bestUtility = currentUtility;
-					bestFound = true;
-				}
 				// Keeping track of max utility and the respective action
-				else if (currentUtility > bestUtility) {
-					LOGGER.info(String.format(LOG_BEST_VALUES, bestUtility, currentUtility, currentHeuristic, currentReward));
+				if (currentUtility < bestUtility) {
 					bestMove[ORIENT] = orient;
 					bestMove[SLOT] = slot;
 					bestUtility = currentUtility;
+					// Records the rows cleared if the current best move is made
+					nextMoveRowsCleared = currentReward;
+					
 				}
 			}
 		}
@@ -97,18 +87,15 @@ public class PlayerSkeleton {
 		// all of the legal moves end the game
 		if (lastMove) {
 			int[] losingMove = legalMoves[0];
-			LOGGER.fine(String.format(LOG_LOSING_MOVE, Arrays.toString(losingMove)));
+			LOGGER.warning(String.format(LOG_LOSING_MOVE, Arrays.toString(losingMove)));
 			return losingMove;
-		}
 
-		if (bestFound) {
-			LOGGER.fine(String.format(LOG_BEST_MOVE, Arrays.toString(bestMove)));
-			return bestMove;
 		} else {
-			// all moves have some utility value, pick the first legal move
-			int[] firstMove = legalMoves[0];
-			LOGGER.fine(String.format(LOG_EQUAL_MOVE, Arrays.toString(firstMove)));
-			return firstMove;
+			if (nextMoveRowsCleared > highscoreRowCleared) {
+				highscoreRowCleared = nextMoveRowsCleared;
+			}
+			LOGGER.info(String.format(LOG_ROWS_CLEARED, highscoreRowCleared, nextMoveRowsCleared));
+			return bestMove;
 		}
 	}
 
@@ -131,12 +118,12 @@ public class PlayerSkeleton {
 	}
 
 	/* Reproduce function
-	* Generate random cutoff point
-	* And marry parent x to parent y
-	* @param x Weights of first pair
-	* @param y Weights of second pair
-	* @param n length of x and y
-	*/
+	 * Generate random cutoff point
+	 * And marry parent x to parent y
+	 * @param x Weights of first pair
+	 * @param y Weights of second pair
+	 * @param n length of x and y
+	 */
 	public static double[] Reproduce(double[] x, double[] y, int n){
 		double[] child = new double[n];
 		int cutoff = (int) Math.floor(n * RANDOM_GENERATOR.nextDouble());
@@ -258,29 +245,29 @@ public class PlayerSkeleton {
 	}
 
 
-    public void calculateFeature(double[] features, CloneState s){
-        int i;
-        int maxHeight = 0;
-        int[] height = s.getCTop();
+	public void calculateFeature(double[] features, CloneState s){
+		int i;
+		int maxHeight = 0;
+		int[] height = s.getCTop();
 		int numRow = s.getCField().length;
 		int numCol = s.getCField()[0].length;
-        for (i=0; i < numCol; i++){       //copy the number of row
-            features[i] = height[i];
-            maxHeight = Math.max(height[i], maxHeight);
-            if (i+1 < numCol)
-                features[i+numCol] = Math.abs(height[i + 1] - height[i]);
-        }
-        features[i++] = maxHeight;
-        features[i] = 0;
-        for (int j = 0; j < numCol; j++){
-            for (int k = 0; k < height[j];k++){
-                if (s.getCField()[k][j] == 0) {
-                    features[i]++;
-                }
-            }
-        }
-        return;
-    }
+		for (i=0; i < numCol; i++){       //copy the number of row
+			features[i] = height[i];
+			maxHeight = Math.max(height[i], maxHeight);
+			if (i+1 < numCol)
+				features[i+numCol] = Math.abs(height[i + 1] - height[i]);
+		}
+		features[i++] = maxHeight;
+		features[i] = 0;
+		for (int j = 0; j < numCol; j++){
+			for (int k = 0; k < height[j];k++){
+				if (s.getCField()[k][j] == 0) {
+					features[i]++;
+				}
+			}
+		}
+		return;
+	}
 
 	//Based on the default heuristic mentioned in project assignment.
 	//features 0 - 9 :10 columns height of the wall.
@@ -299,25 +286,25 @@ public class PlayerSkeleton {
 	}
 
 
-  public static int runState(final double[] weights) {
-    final PlayerSkeleton p = new PlayerSkeleton();
-    Game g = new Game(false, 1); // create headless game with 20ms tick delay
+	public static int runState(final double[] weights) {
+		final PlayerSkeleton p = new PlayerSkeleton();
+		Game g = new Game(false, 1); // create headless game with 20ms tick delay
 
-    g.run(new Game.Callback() {
-      /** Implement the below **/
-      public int[] execute(Game g, State s) {
-        int[] nextMove = p.pickMove(s,weights, s.legalMoves());
-        return nextMove;
-      }
-    });
+		g.run(new Game.Callback() {
+			/** Implement the below **/
+			public int[] execute(Game g, State s) {
+				int[] nextMove = p.pickMove(s,weights, s.legalMoves());
+				return nextMove;
+			}
+		});
 
-    return g.score();
-  }
+		return g.score();
+	}
 
 
 	public static void main(String[] args) {
-	    //TODO: Add in proper logging library instead of System.out.println
-	    //int score = runState(null);
+		//TODO: Add in proper logging library instead of System.out.println
+		//int score = runState(null);
 		//System.out.println("You have completed "+ score  +" rows.");
 		// run genetic algo here
 		Vector<double[]> weightChromosomes = generateWeightChromosome(21);
@@ -332,49 +319,49 @@ public class PlayerSkeleton {
 
 
 	public static void generateTrainData(String[] args){
-	    //generateScores("sim_wgts/sim_wgt_space_100.txt",100);
-	    return;
-	  }
+		//generateScores("sim_wgts/sim_wgt_space_100.txt",100);
+		return;
+	}
 
-	  public static int generateScores(String sim_wgts_filename, int numSamples){
-	    double[] scores = new double[numSamples];
-	    try{
-	      File sim_wgts = new File(sim_wgts_filename);
-	      if(sim_wgts.exists()){
-	        Scanner sc = new Scanner(sim_wgts);
-	        int sampleNum = 0;
-	        while(sc.hasNext()){
-	          String line = new String(sc.nextLine());
-	          String[] str_wgt = line.split(" ");
+	public static int generateScores(String sim_wgts_filename, int numSamples){
+		double[] scores = new double[numSamples];
+		try{
+			File sim_wgts = new File(sim_wgts_filename);
+			if(sim_wgts.exists()){
+				Scanner sc = new Scanner(sim_wgts);
+				int sampleNum = 0;
+				while(sc.hasNext()){
+					String line = new String(sc.nextLine());
+					String[] str_wgt = line.split(" ");
 
-	          double[] double_wgt = new double[21];
-	          int i;
-	          for(i=0; i < 21; i++){
-	            double_wgt[i] = Double.parseDouble(str_wgt[i]);
+					double[] double_wgt = new double[21];
+					int i;
+					for(i=0; i < 21; i++){
+						double_wgt[i] = Double.parseDouble(str_wgt[i]);
 
-	          }
-	          // *** function call to play game here: *** //
-	          //scores[sampleNum] = runState();
-	          sampleNum++;
-	        }
-	        sc.close();
-	      }
-	    }catch(FileNotFoundException fnfe){
-	      System.out.println(fnfe.getMessage());
-	    }
+					}
+					// *** function call to play game here: *** //
+					//scores[sampleNum] = runState();
+					sampleNum++;
+				}
+				sc.close();
+			}
+		}catch(FileNotFoundException fnfe){
+			System.out.println(fnfe.getMessage());
+		}
 
-	    // export scores
-	    try(PrintStream output = new PrintStream(new File("scores.txt"));){
-	      for(int i=0; i<scores.length;i++){
-	        output.println(scores[i]);
-	      }
-	      output.close();
-	    }catch(FileNotFoundException fnfe){
-	      System.out.println(fnfe.getMessage());
-	    }
+		// export scores
+		try(PrintStream output = new PrintStream(new File("scores.txt"));){
+			for(int i=0; i<scores.length;i++){
+				output.println(scores[i]);
+			}
+			output.close();
+		}catch(FileNotFoundException fnfe){
+			System.out.println(fnfe.getMessage());
+		}
 
-	    return 0;
-	  }
+		return 0;
+	}
 
 }
 
