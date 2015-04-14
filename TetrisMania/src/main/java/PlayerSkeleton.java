@@ -19,15 +19,18 @@ public class PlayerSkeleton {
 	private static PlayerSkeleton _instance = null;
 	private static int NUM_OF_RANDOM_CHROMOSOME = 5000;
 	private static Random RANDOM_GENERATOR = new Random();
+
 	private static int highscoreRowCleared;
+	private static String LOG_ROWS_CLEARED = "Highscore: %1$s. Turn: %2$s";
+
 	// private double[] weights = new double[22];
 
 	private final static Logger LOGGER = Logger.getLogger(PlayerSkeleton.class.getName());
-	
+
 	private PlayerSkeleton() {
 		highscoreRowCleared = 0;
 	}
-	
+
 	public static PlayerSkeleton getInstance() {
 		if (_instance == null) {
 			_instance = new PlayerSkeleton();
@@ -47,27 +50,27 @@ public class PlayerSkeleton {
 	 *
 	 */
 	public int[] pickMove(State s, double[] weights, int[][] legalMoves) {
-		final String LOG_ROWS_CLEARED = "Highscore: %1$s. Current: %2$s";
-		final String LOG_LOSING_MOVE = "GAME LOST. TURN: %1$s. ROWS: %2$s.";
-
 		// indices for legalMoves from State class
 		final int ORIENT = State.ORIENT;
 		final int SLOT = State.SLOT;
 
-		// initialise variables for finding arg max (utility)
-		CloneState cState;
+		// for loop variables
 		int orient = -1;
 		int slot = -1;
+		int[] currentMove = new int[2];
+		int[] bestMove = new int[2];
+		int nextMoveRowsCleared = 0;
 		int currentReward = 0;
 		double currentHeuristic = 0;
 		double currentUtility = 0;
-		double bestUtility = Integer.MAX_VALUE;
-		int[] currentAction = new int[2];
+		double bestUtility = Integer.MIN_VALUE;
+
+		// initialises default move to be the first legal move
+		CloneState cState = new CloneState(s);
 		int[] defaultMove = legalMoves[0];
-		int defaultRowsCleared = 0;
-		// initialises best move to be the default move 
-		int[] bestMove = defaultMove;
-		int nextMoveRowsCleared = 0;
+		cState.tryMakeMove(defaultMove[ORIENT], defaultMove[SLOT]);
+		int defaultRowsCleared = cState.getCCleared(); 
+
 		boolean lastMove = true;
 		boolean bestFound = false;
 
@@ -75,13 +78,9 @@ public class PlayerSkeleton {
 		for (int n = 0; n < legalMoves.length; n++) {
 			// Setting variables for calculating utility
 			cState = new CloneState(s);
-			currentAction = legalMoves[n];
-			orient = currentAction[ORIENT];
-			slot = currentAction[SLOT];
-
-			assert(cState.getCPiece() == s.getNextPiece());
-			assert(cState.cLegalMoves()[n][ORIENT] == orient);
-			assert(cState.cLegalMoves()[n][SLOT] == slot);
+			currentMove = legalMoves[n];
+			orient = currentMove[ORIENT];
+			slot = currentMove[SLOT];
 
 			// Given the set of moves, try a move which does not make us lose
 			if (cState.tryMakeMove(orient, slot)) {
@@ -90,12 +89,7 @@ public class PlayerSkeleton {
 				currentHeuristic = calculateHeuristic(weights, cState);
 				currentUtility = currentHeuristic + currentReward;
 
-				// records rows cleared if default move (first move) is picked
-				if (n == 0) {
-					defaultRowsCleared = currentReward;
-				}
-
-				// Keeping track of max utility and the respective action
+				// Keeping track of best utility and the respective action
 				if (currentUtility > bestUtility) {
 					bestFound = true;
 					bestMove[ORIENT] = orient;
@@ -106,32 +100,26 @@ public class PlayerSkeleton {
 				}
 			}
 		}
-		
-		
-		// Pick the default move if all legal moves cause us to lose
-		if (lastMove) {
-			if (defaultRowsCleared > highscoreRowCleared) {
-				highscoreRowCleared = defaultRowsCleared;
-				LOGGER.info(String.format(LOG_ROWS_CLEARED, highscoreRowCleared, defaultRowsCleared));
-			}
-			//LOGGER.warning(String.format(LOG_LOSING_MOVE, s.getTurnNumber() + 1, defaultRowsCleared));
-			return defaultMove;
-		}
 
-		if (bestFound) {
-			if (nextMoveRowsCleared > highscoreRowCleared) {
-				highscoreRowCleared = nextMoveRowsCleared;
-				LOGGER.info(String.format(LOG_ROWS_CLEARED, highscoreRowCleared, nextMoveRowsCleared));
-			}
-			
-			return bestMove;
-		} else {
-			// all moves have some utility value, pick the first legal move
-			if (defaultRowsCleared > highscoreRowCleared) {
-				highscoreRowCleared = defaultRowsCleared;
-				LOGGER.info(String.format(LOG_ROWS_CLEARED, highscoreRowCleared, defaultRowsCleared));
-			}			
+		// Pick the default move if all legal moves cause us to lose or
+		// all moves have the same utility values
+		if (lastMove || !bestFound) {
+			updateHighscore(defaultRowsCleared, s.getTurnNumber() + 1);
 			return defaultMove;
+		} else {
+			updateHighscore(nextMoveRowsCleared, s.getTurnNumber() + 1);
+			return bestMove;
+		}
+	}
+
+	/**
+	 * @param nextRowsCleared
+	 * @param nextTurn
+	 */
+	private void updateHighscore(int nextRowsCleared, int nextTurn) {
+		if (nextRowsCleared > highscoreRowCleared) {
+			highscoreRowCleared = nextRowsCleared;
+			LOGGER.info(String.format(LOG_ROWS_CLEARED, highscoreRowCleared, nextTurn ));
 		}
 	}
 
