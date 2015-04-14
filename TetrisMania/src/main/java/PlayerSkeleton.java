@@ -294,7 +294,7 @@ public class PlayerSkeleton {
 
   public static int runState(final double[] weights) {
     final PlayerSkeleton p = new PlayerSkeleton();
-    Game g = new Game(false, 20); // create headless game with 20ms tick delay
+    Game g = new Game(false, 1); // create headless game with 20ms tick delay
 
     g.run(new Game.Callback() {
       /** Implement the below **/
