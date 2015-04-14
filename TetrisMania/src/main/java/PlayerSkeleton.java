@@ -146,12 +146,14 @@ public class PlayerSkeleton {
 
   public static int runState() {
     final PlayerSkeleton p = new PlayerSkeleton();
-    Game g = new Game(false, 20); // create headless game with 20ms tick delay
+    Game g = new Game(false, 5); // create headless game with 5ms tick delay
 
     g.run(new Game.Callback() {
       /** Implement the below **/
       public int[] execute(Game g, State s) {
-        int[] nextMove = p.pickMove(s, s.legalMoves());
+        int[] nextMove;
+//        nextMove = p.pickMove(s, s.legalMoves());
+        nextMove = new int[] {0,0};
         return nextMove;
       }
     });
