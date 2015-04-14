@@ -13,7 +13,7 @@ import java.util.logging.Logger;
 
 
 public class PlayerSkeleton {
-	private static int NUM_OF_RANDOM_CHROMOSOME = 100000;
+	private static int NUM_OF_RANDOM_CHROMOSOME = 500;
 	private static Random RANDOM_GENERATOR = new Random();
 	// private double[] weights = new double[22];
 	
@@ -116,7 +116,8 @@ public class PlayerSkeleton {
 		for (int i = 0; i < NUM_OF_RANDOM_CHROMOSOME; i++){
 			double[] weightArray = new double[N];
 			for (int j = 0; j< N; j++)
-				weightArray[j] = RANDOM_GENERATOR.nextDouble();
+				// all weights should be negativeS
+				weightArray[j] = -1 * RANDOM_GENERATOR.nextDouble();
 			generatedWeights.add(weightArray);
 		}
 		return generatedWeights;
@@ -140,6 +141,15 @@ public class PlayerSkeleton {
 		}
 		for (int j = cutoff; j <n; j++){
 			child[j] = y[j];
+		}
+		// now we mutate on of the elements
+		double mutationIndex = RANDOM_GENERATOR.nextDouble();
+		if (mutationIndex > 0.8){
+			int mutationPosition =(int) Math.floor(n * RANDOM_GENERATOR.nextDouble());
+			if (mutationPosition > n-1)
+				mutationPosition--;
+			double mutatedValue = -1 * RANDOM_GENERATOR.nextDouble();
+			child[mutationPosition]= mutatedValue;
 		}
 		return child;
 	}
@@ -303,7 +313,7 @@ public class PlayerSkeleton {
 	    //int score = runState(null);
 		//System.out.println("You have completed "+ score  +" rows.");
 		// run genetic algo here
-		Vector<double[]> weightChromosomes = generateWeightChromosome(22);
+		Vector<double[]> weightChromosomes = generateWeightChromosome(21);
 		try {
 			GeneticAlgorithm(weightChromosomes);
 		} catch (IOException e) {
