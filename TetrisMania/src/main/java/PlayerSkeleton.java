@@ -16,12 +16,26 @@ import java.util.logging.Logger;
  * Player skeleton
  */
 public class PlayerSkeleton {
+	private static PlayerSkeleton _instance = null;
 	private static int NUM_OF_RANDOM_CHROMOSOME = 5000;
 	private static Random RANDOM_GENERATOR = new Random();
-	private static int highscoreRowCleared = 0;
+	private static int highscoreRowCleared;
 	// private double[] weights = new double[22];
 
 	private final static Logger LOGGER = Logger.getLogger(PlayerSkeleton.class.getName());
+	
+	private PlayerSkeleton() {
+		highscoreRowCleared = 0;
+	}
+	
+	public static PlayerSkeleton getInstance() {
+		if (_instance == null) {
+			_instance = new PlayerSkeleton();
+			return _instance;
+		} else {
+			return _instance;
+		}
+	}
 	/**
 	 * Agent's Strategy: picks a move (horizontal positioning and rotation applied to the falling object)
 	 * that maximises (reward + heuristic function)
@@ -34,7 +48,7 @@ public class PlayerSkeleton {
 	 */
 	public int[] pickMove(State s, double[] weights, int[][] legalMoves) {
 		final String LOG_ROWS_CLEARED = "Highscore: %1$s. Current: %2$s";
-		final String LOG_LOSING_MOVE = "GAME LOST. TURN: %1$s";
+		final String LOG_LOSING_MOVE = "GAME LOST. TURN: %1$s. ROWS: %2$s.";
 
 		// indices for legalMoves from State class
 		final int ORIENT = State.ORIENT;
@@ -47,11 +61,15 @@ public class PlayerSkeleton {
 		int currentReward = 0;
 		double currentHeuristic = 0;
 		double currentUtility = 0;
-		double bestUtility = currentUtility;
+		double bestUtility = Integer.MAX_VALUE;
 		int[] currentAction = new int[2];
-		int[] bestMove = new int[2];
+		int[] defaultMove = legalMoves[0];
+		int defaultRowsCleared = 0;
+		// initialises best move to be the default move 
+		int[] bestMove = defaultMove;
 		int nextMoveRowsCleared = 0;
 		boolean lastMove = true;
+		boolean bestFound = false;
 
 		// Calculate utility for every legal move in the given array
 		for (int n = 0; n < legalMoves.length; n++) {
@@ -70,32 +88,50 @@ public class PlayerSkeleton {
 				lastMove = false;
 				currentReward = cState.getCCleared();
 				currentHeuristic = calculateHeuristic(weights, cState);
-				currentUtility = currentHeuristic - currentReward;
+				currentUtility = currentHeuristic + currentReward;
+
+				// records rows cleared if default move (first move) is picked
+				if (n == 0) {
+					defaultRowsCleared = currentReward;
+				}
 
 				// Keeping track of max utility and the respective action
-				if (currentUtility < bestUtility) {
+				if (currentUtility > bestUtility) {
+					bestFound = true;
 					bestMove[ORIENT] = orient;
 					bestMove[SLOT] = slot;
 					bestUtility = currentUtility;
 					// Records the rows cleared if the current best move is made
 					nextMoveRowsCleared = currentReward;
-					
 				}
 			}
 		}
-
-		// all of the legal moves end the game
+		
+		
+		// Pick the default move if all legal moves cause us to lose
 		if (lastMove) {
-			int[] losingMove = legalMoves[0];
-			LOGGER.warning(String.format(LOG_LOSING_MOVE, Arrays.toString(losingMove)));
-			return losingMove;
+			if (defaultRowsCleared > highscoreRowCleared) {
+				highscoreRowCleared = defaultRowsCleared;
+				LOGGER.info(String.format(LOG_ROWS_CLEARED, highscoreRowCleared, defaultRowsCleared));
+			}
+			//LOGGER.warning(String.format(LOG_LOSING_MOVE, s.getTurnNumber() + 1, defaultRowsCleared));
+			return defaultMove;
+		}
 
-		} else {
+		if (bestFound) {
 			if (nextMoveRowsCleared > highscoreRowCleared) {
 				highscoreRowCleared = nextMoveRowsCleared;
+				LOGGER.info(String.format(LOG_ROWS_CLEARED, highscoreRowCleared, nextMoveRowsCleared));
 			}
-			LOGGER.info(String.format(LOG_ROWS_CLEARED, highscoreRowCleared, nextMoveRowsCleared));
+			
 			return bestMove;
+		} else {
+			// all moves have some utility value, pick the first legal move
+			if (defaultRowsCleared > highscoreRowCleared) {
+				highscoreRowCleared = defaultRowsCleared;
+				LOGGER.info(String.format(LOG_ROWS_CLEARED, highscoreRowCleared, defaultRowsCleared));
+			}			
+			return defaultMove;
 		}
 	}
 
@@ -287,7 +323,7 @@ public class PlayerSkeleton {
 
 
 	public static int runState(final double[] weights) {
-		final PlayerSkeleton p = new PlayerSkeleton();
+		final PlayerSkeleton p = getInstance();
 		Game g = new Game(false, 1); // create headless game with 20ms tick delay
 
 		g.run(new Game.Callback() {
