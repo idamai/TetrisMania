@@ -17,7 +17,7 @@ import java.util.logging.Logger;
  * Player skeleton
  */
 public class PlayerSkeleton {
-	private static int NUM_OF_RANDOM_CHROMOSOME = 500;
+	private static int NUM_OF_RANDOM_CHROMOSOME = 5000;
 	private static Random RANDOM_GENERATOR = new Random();
 	// private double[] weights = new double[22];
 
