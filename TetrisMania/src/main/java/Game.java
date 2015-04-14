@@ -23,7 +23,10 @@ public class Game {
     this.useGui = useGui;
     this.delay = delay;
     state = new State();
-    screen = new TFrame(state);
+    // do not instantiate if headless
+    if (useGui) {
+      screen = new TFrame(state);
+    }
   }
 
 

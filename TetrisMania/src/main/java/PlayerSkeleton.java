@@ -16,28 +16,28 @@ public class PlayerSkeleton {
 	private static int NUM_OF_RANDOM_CHROMOSOME = 500;
 	private static Random RANDOM_GENERATOR = new Random();
 	// private double[] weights = new double[22];
-	
+
 	private final static Logger LOGGER = Logger.getLogger(PlayerSkeleton.class.getName());
 	/**
 	 * Agent's Strategy: picks a move (horizontal positioning and rotation applied to the falling object)
 	 * that maximises (reward + heuristic function)
-	 * 
+	 *
 	 * @param s
 	 * @param legalMoves	int[n][a] where n is number of possible moves and a is the index of orient and action
-	 * 
+	 *
 	 * @return move			int array [orient, slot]
-	 * 
+	 *
 	 */
 	public int[] pickMove(State s, double[] weights, int[][] legalMoves) {
 		final String LOG_BEST_VALUES = "bU: %1$s cU %2$s cH: %3$s cR: %3$s";
 		final String LOG_BEST_MOVE = "BEST move picked: %1$s";
 		final String LOG_EQUAL_MOVE = "FIRST move picked: %1$s (Equal utility values)";
 		final String LOG_LOSING_MOVE = "LOSING move picked: %1$s";
-		
-		// indices for legalMoves from State class 
+
+		// indices for legalMoves from State class
 		final int ORIENT = State.ORIENT;
 		final int SLOT = State.SLOT;
-		
+
 		// initialise variables for finding arg max (utility)
 		CloneState cState;
 		int orient = -1;
@@ -50,30 +50,30 @@ public class PlayerSkeleton {
 		int[] bestMove = new int[2];
 		boolean bestFound = false;
 		boolean lastMove = true;
-		
+
 		// Calculate utility for every legal move in the given array
 		for (int n = 0; n < legalMoves.length; n++) {
 			// reset values
 			currentReward = 0;
 			currentHeuristic = 0;
 			currentUtility = 0;
-			
-			// Setting variables for calculating utility 
+
+			// Setting variables for calculating utility
 			cState = new CloneState(s);
 			currentAction = legalMoves[n];
 			orient = currentAction[ORIENT];
 			slot = currentAction[SLOT];
-			
+
 			assert(cState.getCPiece() == s.getNextPiece());
 			assert(cState.cLegalMoves()[n][ORIENT] == orient);
 			assert(cState.cLegalMoves()[n][SLOT] == slot);
 			// Given the set of moves, try a move which does not make us lose
 			if (cState.tryMakeMove(orient, slot)) {
 				lastMove = false;
-				currentReward = cState.getCCleared(); 
+				currentReward = cState.getCCleared();
 				currentHeuristic = calculateHeuristic(weights, cState);
 				currentUtility = currentReward + currentHeuristic;
-				
+
 				// Keeping track of max utility and the respective action
 				if (currentUtility > bestUtility) {
 					if (!bestFound) {
@@ -86,7 +86,7 @@ public class PlayerSkeleton {
 				}
 			}
 		}
-		
+
 		// all of the legal moves end the game
 		if (lastMove) {
 			int[] losingMove = legalMoves[0];
@@ -96,21 +96,21 @@ public class PlayerSkeleton {
 
 		if (bestFound) {
 			LOGGER.fine(String.format(LOG_BEST_MOVE, Arrays.toString(bestMove)));
-			return bestMove;	
+			return bestMove;
 		} else {
 			// all moves have some utility value, pick the first legal move
 			int[] firstMove = legalMoves[0];
 			LOGGER.fine(String.format(LOG_EQUAL_MOVE, Arrays.toString(firstMove)));
 			return firstMove;
-		}		
+		}
 	}
-	
+
 	// Genetic  algorithm
 	// Generate Weight Chromosome
 	// This function will generate random weights for each features depending
 	// on the number of heur functions will be used. Should only be run during
 	// initialization process
-	// param:  number of functions in the problem set 
+	// param:  number of functions in the problem set
 	public static Vector<double[]> generateWeightChromosome(int N) {
 		Vector<double[]>  generatedWeights = new Vector<double[]>();
 		for (int i = 0; i < NUM_OF_RANDOM_CHROMOSOME; i++){
@@ -122,11 +122,11 @@ public class PlayerSkeleton {
 		}
 		return generatedWeights;
 	}
-	
+
 	/* Reproduce function
 	* Generate random cutoff point
 	* And marry parent x to parent y
-	* @param x Weights of first pair 
+	* @param x Weights of first pair
 	* @param y Weights of second pair
 	* @param n length of x and y
 	*/
@@ -153,21 +153,21 @@ public class PlayerSkeleton {
 		}
 		return child;
 	}
-	
+
 	// Genetic Algorithm
 	// GeneticAlgorithm Function
 	// param: chromosome of weights
 	public static double[] GeneticAlgorithm(Vector<double[]> weightChromosomes) throws IOException{
 		PrintWriter writer = new PrintWriter(new FileWriter("geneticalgolog.txt", true),true);
-		
+
 		//fitness function is the test of the game
-		//run 
-		Vector<WeightsFitnessPair>  weightChromosomePopulation = new Vector<WeightsFitnessPair>(); 
+		//run
+		Vector<WeightsFitnessPair>  weightChromosomePopulation = new Vector<WeightsFitnessPair>();
 		// round fittest will denote current checked round fitness
 		int roundFittest=Integer.MIN_VALUE;
-		
+
 		WeightsFitnessPair currentFittestPair = null;
-		
+
 		//initialize population and round fittest
 		for (int i = 0; i< weightChromosomes.size(); i++){
 			int weightsFitness = runState(weightChromosomes.get(i));
@@ -211,19 +211,19 @@ public class PlayerSkeleton {
 				WeightsFitnessPair candidateB = weightChromosomePopulation.get(candidateBIdx);
 				WeightsFitnessPair candidateC = weightChromosomePopulation.get(candidateCIdx);
 				WeightsFitnessPair candidateD = weightChromosomePopulation.get(candidateDIdx);
-				
+
 				WeightsFitnessPair parentX;
 				WeightsFitnessPair parentY;
 				if (candidateA.getFitness() > candidateB.getFitness())
 					parentX = candidateA;
 				else
 					parentX = candidateB;
-				
+
 				if (candidateC.getFitness() > candidateD.getFitness())
 					parentY = candidateC;
 				else
 					parentY = candidateD;
-				
+
 				double[] childWeights = Reproduce(parentX.getWeights(), parentY.getWeights(), parentX.getWeights().length);
 				int childFitness= runState(childWeights);
 				WeightsFitnessPair childFitnessPair = new WeightsFitnessPair(childWeights, childFitness);
@@ -247,10 +247,10 @@ public class PlayerSkeleton {
 		}
 		writer.close();
 		return currentFittestPair.getWeights();
-		
+
 	}
-	
-	
+
+
     public void calculateFeature(double[] features, CloneState s){
         int i;
         int maxHeight = 0;
@@ -320,15 +320,15 @@ public class PlayerSkeleton {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
+
 	}
-	
-	
+
+
 	public static void generateTrainData(String[] args){
 	    //generateScores("sim_wgts/sim_wgt_space_100.txt",100);
 	    return;
 	  }
-	  
+
 	  public static int generateScores(String sim_wgts_filename, int numSamples){
 	    double[] scores = new double[numSamples];
 	    try{
@@ -339,12 +339,12 @@ public class PlayerSkeleton {
 	        while(sc.hasNext()){
 	          String line = new String(sc.nextLine());
 	          String[] str_wgt = line.split(" ");
-	          
+
 	          double[] double_wgt = new double[21];
 	          int i;
 	          for(i=0; i < 21; i++){
 	            double_wgt[i] = Double.parseDouble(str_wgt[i]);
-	
+
 	          }
 	          // *** function call to play game here: *** //
 	          //scores[sampleNum] = runState();
@@ -355,7 +355,7 @@ public class PlayerSkeleton {
 	    }catch(FileNotFoundException fnfe){
 	      System.out.println(fnfe.getMessage());
 	    }
-	    
+
 	    // export scores
 	    try(PrintStream output = new PrintStream(new File("scores.txt"));){
 	      for(int i=0; i<scores.length;i++){
@@ -365,7 +365,7 @@ public class PlayerSkeleton {
 	    }catch(FileNotFoundException fnfe){
 	      System.out.println(fnfe.getMessage());
 	    }
-	    
+
 	    return 0;
 	  }
 
@@ -374,20 +374,20 @@ public class PlayerSkeleton {
 class WeightsFitnessPair {
 	private double[] weights;
 	private int fitness;
-	
+
 	public WeightsFitnessPair(double[] weights, int fitness) {
 		this.weights = weights.clone();
 		this.fitness = fitness;
 	}
-	
+
 	public double[] getWeights() {
 		return weights;
 	}
-	
+
 	public int getFitness() {
 		return fitness;
 	}
-	
+
 	public String toString(){
 		String str = "This weights pair details are as follows:\n";
 		for (int i = 0; i<weights.length;i++){
