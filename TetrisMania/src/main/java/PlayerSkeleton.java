@@ -77,11 +77,15 @@ public class PlayerSkeleton {
 				currentHeuristic = calculateHeuristic(weights, cState);
 				currentUtility = currentReward + currentHeuristic;
 
+				if (!bestFound){
+					LOGGER.info(String.format(LOG_BEST_VALUES, bestUtility, currentUtility, currentHeuristic, currentReward));
+					bestMove[ORIENT] = orient;
+					bestMove[SLOT] = slot;
+					bestUtility = currentUtility;
+					bestFound = true;
+				}
 				// Keeping track of max utility and the respective action
-				if (currentUtility > bestUtility) {
-					if (!bestFound) {
-						bestFound = true;
-					}
+				else if (currentUtility > bestUtility) {
 					LOGGER.info(String.format(LOG_BEST_VALUES, bestUtility, currentUtility, currentHeuristic, currentReward));
 					bestMove[ORIENT] = orient;
 					bestMove[SLOT] = slot;
