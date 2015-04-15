@@ -36,14 +36,14 @@ public class PlayerSkeleton {
 	private PlayerSkeleton() {
 	}
 
-//	public static PlayerSkeleton getInstance() {
-//		if (_instance == null) {
-//			_instance = new PlayerSkeleton();
-//			return _instance;
-//		} else {
-//			return _instance;
-//		}
-//	}
+	public static PlayerSkeleton getInstance() {
+		if (_instance == null) {
+			_instance = new PlayerSkeleton();
+			return _instance;
+		} else {
+			return _instance;
+		}
+	}
 
 	/**
 	 * Agent's Strategy: picks a move (horizontal positioning and rotation
@@ -198,8 +198,7 @@ public class PlayerSkeleton {
 		ExecutorService taskExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 		List<Future<WeightsFitnessPair>> results;
 		final Vector<double []> finalWeightChromosomes = weightChromosomes;
-		final Vector<WeightsFitnessPair> finalWeightChromosomePopulation1 = weightChromosomePopulation;
-		List<Callable<WeightsFitnessPair>> tasks = new ArrayList<Callable<WeightsFitnessPair>>(finalWeightChromosomePopulation1.size());
+		List<Callable<WeightsFitnessPair>> tasks = new ArrayList<Callable<WeightsFitnessPair>>(weightChromosomePopulation.size());
 		// initialize population and round fittest
 		for (int i = 0; i < finalWeightChromosomes.size(); i++) {
 			final int finalI = i;
@@ -214,12 +213,16 @@ public class PlayerSkeleton {
 			});
 		}
 		try {
+			System.out.println("Tasks ran initial: " + tasks.size());
 			results = taskExecutor.invokeAll(tasks, Long.MAX_VALUE, TimeUnit.SECONDS);
+			System.out.println("Tasks ran after initial: " + tasks.size());
+			System.out.println("Resulsts size after initial: " + results.size());
 			for (Future<WeightsFitnessPair> it : results){
 				if (currentFittestPair == null ||  it.get().getFitness() > roundFittest){
 					currentFittestPair = it.get();
 					roundFittest = it.get().getFitness();
 				}
+				weightChromosomePopulation.add(it.get());
 			}
 		} catch (InterruptedException e) {
 			e.printStackTrace();
@@ -235,19 +238,19 @@ public class PlayerSkeleton {
 		// 10%
 		int counter = 0;
 		final WeightsFitnessPair finalCurrentFittestPair = currentFittestPair;
-		while (roundFittest >= (0.7 * currentFittestPair.getFitness())
-				&& localMaximaRetry < 100) {
+		WeightsFitnessPair roundFittestPair = currentFittestPair;
+		while (roundFittestPair.getFitness() >= (0.7 * currentFittestPair.getFitness())
+				&& localMaximaRetry < 5) {
 			Vector<WeightsFitnessPair> newPopulation = new Vector<WeightsFitnessPair>();
 			roundFittest = Integer.MIN_VALUE;
-			WeightsFitnessPair roundFittestPair = null;
 			//parallelize stuffs to run in each round
 			final Vector<WeightsFitnessPair> finalWeightChromosomePopulation = weightChromosomePopulation;
 
-			tasks = new ArrayList<Callable<WeightsFitnessPair>>(finalWeightChromosomePopulation.size());
+			tasks = new ArrayList<Callable<WeightsFitnessPair>>(weightChromosomePopulation.size());
 			for (int i = 0; i < finalWeightChromosomePopulation.size(); i++) {
 				tasks.add(new Callable<WeightsFitnessPair>() {
 					@Override
-					public WeightsFitnessPair call(){
+					public WeightsFitnessPair call() {
 						double[] childWeights = ProduceChild(finalCurrentFittestPair,
 								finalWeightChromosomePopulation);
 						int childFitness = runState(childWeights);
@@ -258,8 +261,8 @@ public class PlayerSkeleton {
 
 			try {
 				results = taskExecutor.invokeAll(tasks, Long.MAX_VALUE, TimeUnit.SECONDS);
-				System.out.println(tasks.size());
-				System.out.println(results.size());
+				System.out.println("Tasks ran: " + tasks.size());
+				System.out.println("Resulsts size: " + results.size());
 				for (Future<WeightsFitnessPair> future: results){
 					if (roundFittestPair == null || future.get().getFitness() > roundFittestPair.getFitness()) {
 						roundFittestPair = future.get();
@@ -387,7 +390,7 @@ public class PlayerSkeleton {
 	}
 
 	public static int runState(final double[] weights) {
-		final PlayerSkeleton p = new PlayerSkeleton();
+		final PlayerSkeleton p = PlayerSkeleton.getInstance();
 		Game g = new Game(false, 1); // create headless game with 20ms tick
 										// delay
 
@@ -419,6 +422,7 @@ public class PlayerSkeleton {
 			e.printStackTrace();
 		}
 		System.out.println("ended");
+		System.exit(0);
 		return;
 	}
 
