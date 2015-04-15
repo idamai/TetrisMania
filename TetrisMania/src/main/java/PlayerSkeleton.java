@@ -16,9 +16,13 @@ import java.util.logging.Logger;
  */
 public class PlayerSkeleton {
 	private static PlayerSkeleton _instance = null;
+	// GA COEFFICIENT
 	private static int NUM_OF_RANDOM_CHROMOSOME = 5000;
+	private static int LOCAL_MAXIMA_TRESHOLD = 100;
+	private static double ACCEPTABLE_SCORE_COEFF = 0.8;
+	private static double SAMPLING_COEFFICIENT = 0.1;
 	private static Random RANDOM_GENERATOR = new Random();
-
+	private static double MIN_MUTATION_IDX = 0.8;
 	private static int highscoreRowCleared;
 	private static String LOG_ROWS_CLEARED = "Highscore: %1$s. Turn: %2$s";
 
@@ -170,7 +174,7 @@ public class PlayerSkeleton {
 		}
 		// now we mutate on of the elements
 		double mutationIndex = RANDOM_GENERATOR.nextDouble();
-		if (mutationIndex > 0.8) {
+		if (mutationIndex > MIN_MUTATION_IDX) {
 			int mutationPosition = (int) Math.floor(n
 					* RANDOM_GENERATOR.nextDouble());
 			if (mutationPosition > n - 1)
@@ -217,8 +221,8 @@ public class PlayerSkeleton {
 		// try to escape from local maxima by allowing degrading by going down
 		// 10%
 		int counter = 0;
-		while (roundFittest >= (0.7 * currentFittestPair.getFitness())
-				&& localMaximaRetry < 100) {
+		while (roundFittest >= (ACCEPTABLE_SCORE_COEFF * currentFittestPair.getFitness())
+				&& localMaximaRetry < LOCAL_MAXIMA_TRESHOLD) {
 			Vector<WeightsFitnessPair> newPopulation = new Vector<WeightsFitnessPair>();
 			roundFittest = Integer.MIN_VALUE;
 			WeightsFitnessPair roundFittestPair = null;
@@ -257,7 +261,7 @@ public class PlayerSkeleton {
 	private static double[] ProduceChild(WeightsFitnessPair currentFittestPair,
 			Vector<WeightsFitnessPair> currentPopulation) {
 		// Select 10% of population and do a tournament of 2 fittest individual
-		int numToBeTaken = (int) Math.ceil(0.1 * currentPopulation.size());
+		int numToBeTaken = (int) Math.ceil(SAMPLING_COEFFICIENT * currentPopulation.size());
 		Vector<WeightsFitnessPair> tournamentSample = new Vector<WeightsFitnessPair>();
 		for (int i = 0; i < numToBeTaken; i++) {
 			int candidateIdx = (int) Math.floor(currentPopulation.size()
