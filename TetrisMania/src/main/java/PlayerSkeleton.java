@@ -24,8 +24,12 @@ import java.util.logging.Logger;
 public class PlayerSkeleton {
 	private static PlayerSkeleton _instance = null;
 	private static int NUM_OF_RANDOM_CHROMOSOME = 10000;
+	private static int LOCAL_MAXIMA_THRESHOLD = 5;
+	private static double ACCEPTABLE_SCORE_COEFF = 0.8;
+	private static double SAMPLING_COEFFICIENT = 0.1;
 	private static Random RANDOM_GENERATOR = new Random();
-
+	private static double MIN_MUTATION_IDX = 0.8;
+	private static int highscoreRowCleared;
 	private static String LOG_ROWS_CLEARED = "Highscore: %1$s. Turn: %2$s";
 
 	// private double[] weights = new double[22];
@@ -169,7 +173,7 @@ public class PlayerSkeleton {
 		}
 		// now we mutate on of the elements
 		double mutationIndex = RANDOM_GENERATOR.nextDouble();
-		if (mutationIndex > 0.8) {
+		if (mutationIndex > MIN_MUTATION_IDX) {
 			int mutationPosition = (int) Math.floor(n
 					* RANDOM_GENERATOR.nextDouble());
 			if (mutationPosition > n - 1)
@@ -216,7 +220,7 @@ public class PlayerSkeleton {
 			System.out.println("Tasks ran initial: " + tasks.size());
 			results = taskExecutor.invokeAll(tasks, Long.MAX_VALUE, TimeUnit.SECONDS);
 			System.out.println("Tasks ran after initial: " + tasks.size());
-			System.out.println("Resulsts size after initial: " + results.size());
+			System.out.println("Results size after initial: " + results.size());
 			for (Future<WeightsFitnessPair> it : results){
 				if (currentFittestPair == null ||  it.get().getFitness() > roundFittest){
 					currentFittestPair = it.get();
@@ -239,8 +243,8 @@ public class PlayerSkeleton {
 		int counter = 0;
 		final WeightsFitnessPair finalCurrentFittestPair = currentFittestPair;
 		WeightsFitnessPair roundFittestPair = currentFittestPair;
-		while (roundFittestPair.getFitness() >= (0.7 * currentFittestPair.getFitness())
-				&& localMaximaRetry < 5) {
+		while (roundFittest >= (ACCEPTABLE_SCORE_COEFF * currentFittestPair.getFitness())
+				&& localMaximaRetry < LOCAL_MAXIMA_THRESHOLD) {
 			Vector<WeightsFitnessPair> newPopulation = new Vector<WeightsFitnessPair>();
 			roundFittest = Integer.MIN_VALUE;
 			//parallelize stuffs to run in each round
@@ -262,7 +266,7 @@ public class PlayerSkeleton {
 			try {
 				results = taskExecutor.invokeAll(tasks, Long.MAX_VALUE, TimeUnit.SECONDS);
 				System.out.println("Tasks ran: " + tasks.size());
-				System.out.println("Resulsts size: " + results.size());
+				System.out.println("Results size: " + results.size());
 				for (Future<WeightsFitnessPair> future: results){
 					if (roundFittestPair == null || future.get().getFitness() > roundFittestPair.getFitness()) {
 						roundFittestPair = future.get();
@@ -295,7 +299,7 @@ public class PlayerSkeleton {
 	private static double[] ProduceChild(WeightsFitnessPair currentFittestPair,
 			Vector<WeightsFitnessPair> currentPopulation) {
 		// Select 10% of population and do a tournament of 2 fittest individual
-		int numToBeTaken = (int) Math.ceil(0.1 * currentPopulation.size());
+		int numToBeTaken = (int) Math.ceil(SAMPLING_COEFFICIENT * currentPopulation.size());
 		Vector<WeightsFitnessPair> tournamentSample = new Vector<WeightsFitnessPair>();
 		for (int i = 0; i < numToBeTaken; i++) {
 			int candidateIdx = (int) Math.floor(currentPopulation.size()
