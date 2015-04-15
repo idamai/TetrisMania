@@ -4,11 +4,17 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.Vector;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /**
@@ -20,7 +26,6 @@ public class PlayerSkeleton {
 	private static int NUM_OF_RANDOM_CHROMOSOME = 5000;
 	private static Random RANDOM_GENERATOR = new Random();
 
-	private static int highscoreRowCleared;
 	private static String LOG_ROWS_CLEARED = "Highscore: %1$s. Turn: %2$s";
 
 	// private double[] weights = new double[22];
@@ -29,17 +34,16 @@ public class PlayerSkeleton {
 			.getName());
 
 	private PlayerSkeleton() {
-		highscoreRowCleared = 0;
 	}
 
-	public static PlayerSkeleton getInstance() {
-		if (_instance == null) {
-			_instance = new PlayerSkeleton();
-			return _instance;
-		} else {
-			return _instance;
-		}
-	}
+//	public static PlayerSkeleton getInstance() {
+//		if (_instance == null) {
+//			_instance = new PlayerSkeleton();
+//			return _instance;
+//		} else {
+//			return _instance;
+//		}
+//	}
 
 	/**
 	 * Agent's Strategy: picks a move (horizontal positioning and rotation
@@ -109,25 +113,19 @@ public class PlayerSkeleton {
 		// Pick the default move if all legal moves cause us to lose or
 		// all moves have the same utility values
 		if (lastMove || !bestFound) {
-			updateHighscore(defaultRowsCleared, s.getTurnNumber() + 1);
 			return defaultMove;
 		} else {
-			updateHighscore(nextMoveRowsCleared, s.getTurnNumber() + 1);
 			return bestMove;
 		}
 	}
 
-	/**
-	 * @param nextRowsCleared
-	 * @param nextTurn
-	 */
-	private void updateHighscore(int nextRowsCleared, int nextTurn) {
-		if (nextRowsCleared > highscoreRowCleared) {
-			highscoreRowCleared = nextRowsCleared;
-			LOGGER.info(String.format(LOG_ROWS_CLEARED, highscoreRowCleared,
-					nextTurn));
-		}
-	}
+//	/**
+//	 * @param nextRowsCleared
+//	 * @param nextTurn
+//	 */
+//	private void updateHighscore(int nextRowsCleared, int nextTurn) {
+//
+//	}
 
 	// Genetic algorithm
 	// Generate Weight Chromosome
@@ -192,52 +190,87 @@ public class PlayerSkeleton {
 		// fitness function is the test of the game
 		// run
 		Vector<WeightsFitnessPair> weightChromosomePopulation = new Vector<WeightsFitnessPair>();
+
 		// round fittest will denote current checked round fitness
 		int roundFittest = Integer.MIN_VALUE;
-
 		WeightsFitnessPair currentFittestPair = null;
 
+		ExecutorService taskExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+		List<Future<WeightsFitnessPair>> results;
+		final Vector<double []> finalWeightChromosomes = weightChromosomes;
+		final Vector<WeightsFitnessPair> finalWeightChromosomePopulation1 = weightChromosomePopulation;
+		List<Callable<WeightsFitnessPair>> tasks = new ArrayList<Callable<WeightsFitnessPair>>(finalWeightChromosomePopulation1.size());
 		// initialize population and round fittest
-		for (int i = 0; i < weightChromosomes.size(); i++) {
-			int weightsFitness = runState(weightChromosomes.get(i));
-			WeightsFitnessPair weightsFitnessPair = new WeightsFitnessPair(
-					weightChromosomes.get(i), weightsFitness);
-			weightChromosomePopulation.add(weightsFitnessPair);
-			if (weightsFitness > roundFittest) {
-				roundFittest = weightsFitness;
-				currentFittestPair = weightsFitnessPair;
+		for (int i = 0; i < finalWeightChromosomes.size(); i++) {
+			final int finalI = i;
+
+			tasks.add(new Callable<WeightsFitnessPair>() {
+				@Override
+				public WeightsFitnessPair call() {
+					int weightsFitness = runState(finalWeightChromosomes.get(finalI));
+					return new WeightsFitnessPair(
+							finalWeightChromosomes.get(finalI), weightsFitness);
+				}
+			});
+		}
+		try {
+			results = taskExecutor.invokeAll(tasks, Long.MAX_VALUE, TimeUnit.SECONDS);
+			for (Future<WeightsFitnessPair> it : results){
+				if (currentFittestPair == null ||  it.get().getFitness() > roundFittest){
+					currentFittestPair = it.get();
+					roundFittest = it.get().getFitness();
+				}
 			}
-			// make sure at least its initialized
-			if (currentFittestPair == null)
-				currentFittestPair = weightsFitnessPair;
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		} catch (ExecutionException e) {
+			e.printStackTrace();
 		}
 		writer.println("Original Fittest:");
 		writer.println(currentFittestPair.toString());
+		writer.flush();
 		int localMaximaRetry = 0;
 		// Re run until found the fittest
 		// try to escape from local maxima by allowing degrading by going down
 		// 10%
 		int counter = 0;
-		ExecutorService taskExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+		final WeightsFitnessPair finalCurrentFittestPair = currentFittestPair;
 		while (roundFittest >= (0.7 * currentFittestPair.getFitness())
 				&& localMaximaRetry < 100) {
 			Vector<WeightsFitnessPair> newPopulation = new Vector<WeightsFitnessPair>();
 			roundFittest = Integer.MIN_VALUE;
 			WeightsFitnessPair roundFittestPair = null;
-
 			//parallelize stuffs to run in each round
-			for (int i = 0; i < weightChromosomePopulation.size(); i++) {
-				double[] childWeights = ProduceChild(currentFittestPair,
-						weightChromosomePopulation);
-				int childFitness = runState(childWeights);
-				WeightsFitnessPair childFitnessPair = new WeightsFitnessPair(
-						childWeights, childFitness);
-				if (childFitness > roundFittest) {
-					roundFittest = childFitness;
-					roundFittestPair = childFitnessPair;
-				}
+			final Vector<WeightsFitnessPair> finalWeightChromosomePopulation = weightChromosomePopulation;
+
+			tasks = new ArrayList<Callable<WeightsFitnessPair>>(finalWeightChromosomePopulation.size());
+			for (int i = 0; i < finalWeightChromosomePopulation.size(); i++) {
+				tasks.add(new Callable<WeightsFitnessPair>() {
+					@Override
+					public WeightsFitnessPair call(){
+						double[] childWeights = ProduceChild(finalCurrentFittestPair,
+								finalWeightChromosomePopulation);
+						int childFitness = runState(childWeights);
+						return new WeightsFitnessPair(childWeights, childFitness);
+					}
+				});
 			}
-			if (roundFittestPair.getFitness() > currentFittestPair.getFitness()) {
+
+			try {
+				results = taskExecutor.invokeAll(tasks, Long.MAX_VALUE, TimeUnit.SECONDS);
+				System.out.println(tasks.size());
+				System.out.println(results.size());
+				for (Future<WeightsFitnessPair> future: results){
+					if (roundFittestPair == null || future.get().getFitness() > roundFittestPair.getFitness()){
+						roundFittestPair = future.get();
+					}
+				}
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			} catch (ExecutionException e) {
+				e.printStackTrace();
+			}
+			if (roundFittestPair != null && roundFittestPair.getFitness() > currentFittestPair.getFitness()) {
 				currentFittestPair = roundFittestPair;
 				localMaximaRetry = 0;
 			} else
@@ -246,8 +279,10 @@ public class PlayerSkeleton {
 			weightChromosomePopulation = newPopulation;
 			writer.println("Fittest after round " + counter + ":");
 			writer.println(currentFittestPair.toString());
+			writer.flush();
 		}
 		writer.println("Exiting GA");
+		writer.flush();
 		writer.close();
 		return currentFittestPair.getWeights();
 	}
@@ -352,7 +387,7 @@ public class PlayerSkeleton {
 	}
 
 	public static int runState(final double[] weights) {
-		final PlayerSkeleton p = getInstance();
+		final PlayerSkeleton p = new PlayerSkeleton();
 		Game g = new Game(false, 1); // create headless game with 20ms tick
 										// delay
 
@@ -374,12 +409,17 @@ public class PlayerSkeleton {
 		// run genetic algo here
 		Vector<double[]> weightChromosomes = generateWeightChromosome(21);
 		try {
-			GeneticAlgorithm(weightChromosomes);
+			double[] results = GeneticAlgorithm(weightChromosomes)
+			for (int i = 0; i < results.length; i++){
+				System.out.print(results[i] + " ");
+			}
+			System.out.println();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-
+		System.out.println("ended");
+		return;
 	}
 
 	public static void generateTrainData(String[] args) {
