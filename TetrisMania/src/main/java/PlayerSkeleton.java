@@ -9,6 +9,7 @@ import java.util.Scanner;
 import java.util.Vector;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 
@@ -252,17 +253,20 @@ public class PlayerSkeleton {
 						int childFitness = runState(childWeights);
 						WeightsFitnessPair childFitnessPair = new WeightsFitnessPair(childWeights, childFitness);
 						//make sure of consistency
-						synchronized (roundFittest) {
-							if (childFitness > roundFittest[0]) {
-								roundFittest[0] = childFitness;
-								roundFittestPair[0] = childFitnessPair;
-							}
-							if (roundFittestPair[0] == null)
-								roundFittestPair[0] = childFitnessPair;
-							newPopulation.add(childFitnessPair);
+						if (childFitness > roundFittest[0]) {
+							roundFittest[0] = childFitness;
+							roundFittestPair[0] = childFitnessPair;
 						}
+						if (roundFittestPair[0] == null)
+							roundFittestPair[0] = childFitnessPair;
+						newPopulation.add(childFitnessPair);
 					}
 				});
+			}
+			try {
+				taskExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
+			} catch (InterruptedException ie) {
+				ie.printStackTrace();
 			}
 			if (roundFittestPair[0].getFitness() > currentFittestPair.getFitness()) {
 				currentFittestPair = roundFittestPair[0];
