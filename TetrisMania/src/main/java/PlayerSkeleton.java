@@ -7,14 +7,9 @@ import java.io.PrintWriter;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.Vector;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
-
 
 /**
  *
@@ -30,7 +25,8 @@ public class PlayerSkeleton {
 
 	// private double[] weights = new double[22];
 
-	private final static Logger LOGGER = Logger.getLogger(PlayerSkeleton.class.getName());
+	private final static Logger LOGGER = Logger.getLogger(PlayerSkeleton.class
+			.getName());
 
 	private PlayerSkeleton() {
 		highscoreRowCleared = 0;
@@ -44,14 +40,18 @@ public class PlayerSkeleton {
 			return _instance;
 		}
 	}
+
 	/**
-	 * Agent's Strategy: picks a move (horizontal positioning and rotation applied to the falling object)
-	 * that maximises (reward + heuristic function)
+	 * Agent's Strategy: picks a move (horizontal positioning and rotation
+	 * applied to the falling object) that maximises (reward + heuristic
+	 * function)
 	 *
 	 * @param s
-	 * @param legalMoves	int[n][a] where n is number of possible moves and a is the index of orient and action
+	 * @param legalMoves
+	 *            int[n][a] where n is number of possible moves and a is the
+	 *            index of orient and action
 	 *
-	 * @return move			int array [orient, slot]
+	 * @return move int array [orient, slot]
 	 *
 	 */
 	public int[] pickMove(State s, double[] weights, int[][] legalMoves) {
@@ -74,7 +74,7 @@ public class PlayerSkeleton {
 		CloneState cState = new CloneState(s);
 		int[] defaultMove = legalMoves[0];
 		cState.tryMakeMove(defaultMove[ORIENT], defaultMove[SLOT]);
-		int defaultRowsCleared = cState.getCCleared(); 
+		int defaultRowsCleared = cState.getCCleared();
 
 		boolean lastMove = true;
 		boolean bestFound = false;
@@ -124,21 +124,22 @@ public class PlayerSkeleton {
 	private void updateHighscore(int nextRowsCleared, int nextTurn) {
 		if (nextRowsCleared > highscoreRowCleared) {
 			highscoreRowCleared = nextRowsCleared;
-			LOGGER.info(String.format(LOG_ROWS_CLEARED, highscoreRowCleared, nextTurn ));
+			LOGGER.info(String.format(LOG_ROWS_CLEARED, highscoreRowCleared,
+					nextTurn));
 		}
 	}
 
-	// Genetic  algorithm
+	// Genetic algorithm
 	// Generate Weight Chromosome
 	// This function will generate random weights for each features depending
 	// on the number of heur functions will be used. Should only be run during
 	// initialization process
-	// param:  number of functions in the problem set
+	// param: number of functions in the problem set
 	public static Vector<double[]> generateWeightChromosome(int N) {
-		Vector<double[]>  generatedWeights = new Vector<double[]>();
-		for (int i = 0; i < NUM_OF_RANDOM_CHROMOSOME; i++){
+		Vector<double[]> generatedWeights = new Vector<double[]>();
+		for (int i = 0; i < NUM_OF_RANDOM_CHROMOSOME; i++) {
 			double[] weightArray = new double[N];
-			for (int j = 0; j< N; j++)
+			for (int j = 0; j < N; j++)
 				// all weights should be negativeS
 				weightArray[j] = -1 * RANDOM_GENERATOR.nextDouble();
 			generatedWeights.add(weightArray);
@@ -146,33 +147,37 @@ public class PlayerSkeleton {
 		return generatedWeights;
 	}
 
-	/* Reproduce function
-	 * Generate random cutoff point
-	 * And marry parent x to parent y
+	/*
+	 * Reproduce function Generate random cutoff point And marry parent x to
+	 * parent y
+	 * 
 	 * @param x Weights of first pair
+	 * 
 	 * @param y Weights of second pair
+	 * 
 	 * @param n length of x and y
 	 */
-	public static double[] Reproduce(double[] x, double[] y, int n){
+	public static double[] Reproduce(double[] x, double[] y, int n) {
 		double[] child = new double[n];
 		int cutoff = (int) Math.floor(n * RANDOM_GENERATOR.nextDouble());
-		//Make sure it won't go out of bounds
-		if (cutoff > n-1)
+		// Make sure it won't go out of bounds
+		if (cutoff > n - 1)
 			cutoff--;
-		for (int i = 0; i <cutoff; i++){
+		for (int i = 0; i < cutoff; i++) {
 			child[i] = x[i];
 		}
-		for (int j = cutoff; j <n; j++){
+		for (int j = cutoff; j < n; j++) {
 			child[j] = y[j];
 		}
 		// now we mutate on of the elements
 		double mutationIndex = RANDOM_GENERATOR.nextDouble();
-		if (mutationIndex > 0.8){
-			int mutationPosition =(int) Math.floor(n * RANDOM_GENERATOR.nextDouble());
-			if (mutationPosition > n-1)
+		if (mutationIndex > 0.8) {
+			int mutationPosition = (int) Math.floor(n
+					* RANDOM_GENERATOR.nextDouble());
+			if (mutationPosition > n - 1)
 				mutationPosition--;
 			double mutatedValue = -1 * RANDOM_GENERATOR.nextDouble();
-			child[mutationPosition]= mutatedValue;
+			child[mutationPosition] = mutatedValue;
 		}
 		return child;
 	}
@@ -180,102 +185,57 @@ public class PlayerSkeleton {
 	// Genetic Algorithm
 	// GeneticAlgorithm Function
 	// param: chromosome of weights
-	public static double[] GeneticAlgorithm(Vector<double[]> weightChromosomes) throws IOException{
-		PrintWriter writer = new PrintWriter(new FileWriter("geneticalgolog.txt", true),true);
-
-		//fitness function is the test of the game
-		//run
-		Vector<WeightsFitnessPair>  weightChromosomePopulation = new Vector<WeightsFitnessPair>();
+	public static double[] GeneticAlgorithm(Vector<double[]> weightChromosomes)
+			throws IOException {
+		PrintWriter writer = new PrintWriter(new FileWriter(
+				"geneticalgolog.txt", true), true);
+		// fitness function is the test of the game
+		// run
+		Vector<WeightsFitnessPair> weightChromosomePopulation = new Vector<WeightsFitnessPair>();
 		// round fittest will denote current checked round fitness
 		int roundFittest = Integer.MIN_VALUE;
 
 		WeightsFitnessPair currentFittestPair = null;
 
-		//initialize population and round fittest
-		for (int i = 0; i< weightChromosomes.size(); i++){
+		// initialize population and round fittest
+		for (int i = 0; i < weightChromosomes.size(); i++) {
 			int weightsFitness = runState(weightChromosomes.get(i));
-			WeightsFitnessPair weightsFitnessPair = new WeightsFitnessPair(weightChromosomes.get(i), weightsFitness);
+			WeightsFitnessPair weightsFitnessPair = new WeightsFitnessPair(
+					weightChromosomes.get(i), weightsFitness);
 			weightChromosomePopulation.add(weightsFitnessPair);
-			if (weightsFitness > roundFittest){
+			if (weightsFitness > roundFittest) {
 				roundFittest = weightsFitness;
 				currentFittestPair = weightsFitnessPair;
 			}
-			//make sure at least its initialized
+			// make sure at least its initialized
 			if (currentFittestPair == null)
-				currentFittestPair= weightsFitnessPair;
+				currentFittestPair = weightsFitnessPair;
 		}
 		writer.println("Original Fittest:");
 		writer.println(currentFittestPair.toString());
 		int localMaximaRetry = 0;
 		// Re run until found the fittest
-		// try to escape from local maxima by allowing degrading by going down 10%
+		// try to escape from local maxima by allowing degrading by going down
+		// 10%
 		int counter = 0;
 		ExecutorService taskExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-		while (roundFittest >= ( 0.9 * currentFittestPair.getFitness()) && localMaximaRetry < 100 ){
-			final Vector<WeightsFitnessPair> newPopulation = new Vector<WeightsFitnessPair>();
+		while (roundFittest >= (0.7 * currentFittestPair.getFitness())
+				&& localMaximaRetry < 100) {
+			Vector<WeightsFitnessPair> newPopulation = new Vector<WeightsFitnessPair>();
 			roundFittest = Integer.MIN_VALUE;
 			WeightsFitnessPair roundFittestPair = null;
-			final Vector<WeightsFitnessPair> finalWeightChromosomePopulation = weightChromosomePopulation;
-			for (int i = 0; i < weightChromosomePopulation.size(); i++){
-				Future<WeightsFitnessPair> childFitnessPair = taskExecutor.submit(new Callable<WeightsFitnessPair>() {
-					@Override
-					public WeightsFitnessPair call() {
-						//Choose 4 parents candidate
-						int candidateAIdx = (int) Math.floor(finalWeightChromosomePopulation.size() * RANDOM_GENERATOR.nextDouble());
-						int candidateBIdx = (int) Math.floor(finalWeightChromosomePopulation.size() * RANDOM_GENERATOR.nextDouble());
-						int candidateCIdx = (int) Math.floor(finalWeightChromosomePopulation.size() * RANDOM_GENERATOR.nextDouble());
-						int candidateDIdx = (int) Math.floor(finalWeightChromosomePopulation.size() * RANDOM_GENERATOR.nextDouble());
-						//Ensure none of them out of bounds
-						if (candidateAIdx > finalWeightChromosomePopulation.size() - 1)
-							candidateAIdx--;
-						if (candidateBIdx > finalWeightChromosomePopulation.size() - 1)
-							candidateBIdx--;
-						if (candidateCIdx > finalWeightChromosomePopulation.size() - 1)
-							candidateCIdx--;
-						if (candidateDIdx > finalWeightChromosomePopulation.size() - 1)
-							candidateDIdx--;
-						//simulate probability of fitness function using "tournament" styleS
-						WeightsFitnessPair candidateA = finalWeightChromosomePopulation.get(candidateAIdx);
-						WeightsFitnessPair candidateB = finalWeightChromosomePopulation.get(candidateBIdx);
-						WeightsFitnessPair candidateC = finalWeightChromosomePopulation.get(candidateCIdx);
-						WeightsFitnessPair candidateD = finalWeightChromosomePopulation.get(candidateDIdx);
 
-						WeightsFitnessPair parentX;
-						WeightsFitnessPair parentY;
-						if (candidateA.getFitness() > candidateB.getFitness())
-							parentX = candidateA;
-						else
-							parentX = candidateB;
-
-						if (candidateC.getFitness() > candidateD.getFitness())
-							parentY = candidateC;
-						else
-							parentY = candidateD;
-
-						double[] childWeights = Reproduce(parentX.getWeights(), parentY.getWeights(), parentX.getWeights().length);
-						int childFitness = runState(childWeights);
-						WeightsFitnessPair childFitnessPair = new WeightsFitnessPair(childWeights, childFitness);
-						return childFitnessPair;
-					}
-				});
-				try {
-					if(childFitnessPair.get().getFitness()>roundFittest) {
-						roundFittest = childFitnessPair.get().getFitness();
-						roundFittestPair = childFitnessPair.get();
-					}
-					if(roundFittestPair==null)
-						roundFittestPair=childFitnessPair.get();
-					newPopulation.add(childFitnessPair.get());
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				} catch (ExecutionException e) {
-					e.printStackTrace();
+			//parallelize stuffs to run in each round
+			for (int i = 0; i < weightChromosomePopulation.size(); i++) {
+				double[] childWeights = ProduceChild(currentFittestPair,
+						weightChromosomePopulation);
+				int childFitness = runState(childWeights);
+				WeightsFitnessPair childFitnessPair = new WeightsFitnessPair(
+						childWeights, childFitness);
+				if (childFitness > roundFittest) {
+					roundFittest = childFitness;
+					roundFittestPair = childFitnessPair;
 				}
-			}
-			try {
-				taskExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
-			} catch (InterruptedException ie) {
-				ie.printStackTrace();
 			}
 			if (roundFittestPair.getFitness() > currentFittestPair.getFitness()) {
 				currentFittestPair = roundFittestPair;
@@ -284,30 +244,89 @@ public class PlayerSkeleton {
 				localMaximaRetry++;
 			counter++;
 			weightChromosomePopulation = newPopulation;
-			writer.println("Fittest after round "+counter+":");
+			writer.println("Fittest after round " + counter + ":");
 			writer.println(currentFittestPair.toString());
 		}
+		writer.println("Exiting GA");
 		writer.close();
 		return currentFittestPair.getWeights();
 	}
 
+	// Tournament runner, returns child
+	// Limitation = original population must be bigger than 50
+	private static double[] ProduceChild(WeightsFitnessPair currentFittestPair,
+			Vector<WeightsFitnessPair> currentPopulation) {
+		// Select 10% of population and do a tournament of 2 fittest individual
+		int numToBeTaken = (int) Math.ceil(0.1 * currentPopulation.size());
+		Vector<WeightsFitnessPair> tournamentSample = new Vector<WeightsFitnessPair>();
+		for (int i = 0; i < numToBeTaken; i++) {
+			int candidateIdx = (int) Math.floor(currentPopulation.size()
+					* RANDOM_GENERATOR.nextDouble());
+			if (candidateIdx > (currentPopulation.size() - 1))
+				candidateIdx--;
+			tournamentSample.add(currentPopulation.get(candidateIdx));
+		}
+		// probability to use best weights directly
+		double probIdx = RANDOM_GENERATOR.nextDouble();
+		int midPoint = numToBeTaken / 2;
+		WeightsFitnessPair parentA;
+		if (probIdx > 0.95)
+			parentA = currentFittestPair;
+		else
+			parentA = tournamentSelect(new Vector<WeightsFitnessPair>(
+					currentPopulation.subList(0, midPoint + 1)));
+		WeightsFitnessPair parentB;
+		if (probIdx < 0.05)
+			parentB = currentFittestPair;
+		else
+			parentB = tournamentSelect(new Vector<WeightsFitnessPair>(
+					currentPopulation.subList(midPoint + 1,
+							currentPopulation.size())));
+		double[] child = Reproduce(parentA.getWeights(), parentB.getWeights(),
+				parentA.getWeights().length);
+		return child;
 
-	public void calculateFeature(double[] features, CloneState s){
+	}
+
+	private static WeightsFitnessPair tournamentSelect(
+			Vector<WeightsFitnessPair> currentPopulation) {
+		WeightsFitnessPair pairA;
+		WeightsFitnessPair pairB;
+		if (currentPopulation.size() == 1)
+			return currentPopulation.get(0);
+		else if (currentPopulation.size() == 2) {
+			pairA = currentPopulation.get(0);
+			pairB = currentPopulation.get(1);
+		} else {
+			int midPoint = currentPopulation.size() / 2;
+			pairA = tournamentSelect(new Vector<WeightsFitnessPair>(
+					currentPopulation.subList(0, midPoint + 1)));
+			pairB = tournamentSelect(new Vector<WeightsFitnessPair>(
+					currentPopulation.subList(midPoint + 1,
+							currentPopulation.size())));
+		}
+		if (pairA.getFitness() > pairB.getFitness())
+			return pairA;
+		else
+			return pairB;
+	}
+
+	public void calculateFeature(double[] features, CloneState s) {
 		int i;
 		int maxHeight = 0;
 		int[] height = s.getCTop();
 		int numRow = s.getCField().length;
 		int numCol = s.getCField()[0].length;
-		for (i=0; i < numCol; i++){       //copy the number of row
+		for (i = 0; i < numCol; i++) { // copy the number of row
 			features[i] = height[i];
 			maxHeight = Math.max(height[i], maxHeight);
-			if (i+1 < numCol)
-				features[i+numCol] = Math.abs(height[i + 1] - height[i]);
+			if (i + 1 < numCol)
+				features[i + numCol] = Math.abs(height[i + 1] - height[i]);
 		}
 		features[i++] = maxHeight;
 		features[i] = 0;
-		for (int j = 0; j < numCol; j++){
-			for (int k = 0; k < height[j];k++){
+		for (int j = 0; j < numCol; j++) {
+			for (int k = 0; k < height[j]; k++) {
 				if (s.getCField()[k][j] == 0) {
 					features[i]++;
 				}
@@ -316,31 +335,31 @@ public class PlayerSkeleton {
 		return;
 	}
 
-	//Based on the default heuristic mentioned in project assignment.
-	//features 0 - 9 :10 columns height of the wall.
-	//features 10 - 18: absolute difference in height of adjacent walls.
-	//feature 19: maximum column height.
-	//feature 20: number of holes in the wall.
-	public double calculateHeuristic(double[] weights, CloneState s){
+	// Based on the default heuristic mentioned in project assignment.
+	// features 0 - 9 :10 columns height of the wall.
+	// features 10 - 18: absolute difference in height of adjacent walls.
+	// feature 19: maximum column height.
+	// feature 20: number of holes in the wall.
+	public double calculateHeuristic(double[] weights, CloneState s) {
 		double sum = 0;
 		double features[] = new double[21];
 		features[0] = 1;
 		calculateFeature(features, s);
-		for (int i = 0; i < weights.length; i++){
-			sum += weights[i]*features[i];
+		for (int i = 0; i < weights.length; i++) {
+			sum += weights[i] * features[i];
 		}
 		return sum;
 	}
 
-
 	public static int runState(final double[] weights) {
 		final PlayerSkeleton p = getInstance();
-		Game g = new Game(false, 1); // create headless game with 20ms tick delay
+		Game g = new Game(false, 1); // create headless game with 20ms tick
+										// delay
 
 		g.run(new Game.Callback() {
 			/** Implement the below **/
 			public int[] execute(Game g, State s) {
-				int[] nextMove = p.pickMove(s,weights, s.legalMoves());
+				int[] nextMove = p.pickMove(s, weights, s.legalMoves());
 				return nextMove;
 			}
 		});
@@ -348,11 +367,10 @@ public class PlayerSkeleton {
 		return g.score();
 	}
 
-
 	public static void main(String[] args) {
-		//TODO: Add in proper logging library instead of System.out.println
-		//int score = runState(null);
-		//System.out.println("You have completed "+ score  +" rows.");
+		// TODO: Add in proper logging library instead of System.out.println
+		// int score = runState(null);
+		// System.out.println("You have completed "+ score +" rows.");
 		// run genetic algo here
 		Vector<double[]> weightChromosomes = generateWeightChromosome(21);
 		try {
@@ -364,46 +382,45 @@ public class PlayerSkeleton {
 
 	}
 
-
-	public static void generateTrainData(String[] args){
-		//generateScores("sim_wgts/sim_wgt_space_100.txt",100);
+	public static void generateTrainData(String[] args) {
+		// generateScores("sim_wgts/sim_wgt_space_100.txt",100);
 		return;
 	}
 
-	public static int generateScores(String sim_wgts_filename, int numSamples){
+	public static int generateScores(String sim_wgts_filename, int numSamples) {
 		double[] scores = new double[numSamples];
-		try{
+		try {
 			File sim_wgts = new File(sim_wgts_filename);
-			if(sim_wgts.exists()){
+			if (sim_wgts.exists()) {
 				Scanner sc = new Scanner(sim_wgts);
 				int sampleNum = 0;
-				while(sc.hasNext()){
+				while (sc.hasNext()) {
 					String line = new String(sc.nextLine());
 					String[] str_wgt = line.split(" ");
 
 					double[] double_wgt = new double[21];
 					int i;
-					for(i=0; i < 21; i++){
+					for (i = 0; i < 21; i++) {
 						double_wgt[i] = Double.parseDouble(str_wgt[i]);
 
 					}
 					// *** function call to play game here: *** //
-					//scores[sampleNum] = runState();
+					// scores[sampleNum] = runState();
 					sampleNum++;
 				}
 				sc.close();
 			}
-		}catch(FileNotFoundException fnfe){
+		} catch (FileNotFoundException fnfe) {
 			System.out.println(fnfe.getMessage());
 		}
 
 		// export scores
-		try(PrintStream output = new PrintStream(new File("scores.txt"));){
-			for(int i=0; i<scores.length;i++){
+		try (PrintStream output = new PrintStream(new File("scores.txt"));) {
+			for (int i = 0; i < scores.length; i++) {
 				output.println(scores[i]);
 			}
 			output.close();
-		}catch(FileNotFoundException fnfe){
+		} catch (FileNotFoundException fnfe) {
 			System.out.println(fnfe.getMessage());
 		}
 
@@ -429,15 +446,15 @@ class WeightsFitnessPair {
 		return fitness;
 	}
 
-	public String toString(){
+	public String toString() {
 		String str = "This weights pair details are as follows:\n";
-		for (int i = 0; i<weights.length;i++){
-			str+=weights[i];
-			if (i!= weights.length-1)
-				str+=", ";
+		for (int i = 0; i < weights.length; i++) {
+			str += weights[i];
+			if (i != weights.length - 1)
+				str += ", ";
 		}
-		str+="\n With a score of ";
-		str+=fitness;
+		str += "\n With a score of ";
+		str += fitness;
 		return str;
 	}
 }
