@@ -7,8 +7,11 @@ import java.io.PrintWriter;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.Vector;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -184,7 +187,7 @@ public class PlayerSkeleton {
 		//run
 		Vector<WeightsFitnessPair>  weightChromosomePopulation = new Vector<WeightsFitnessPair>();
 		// round fittest will denote current checked round fitness
-		final int[] roundFittest = {Integer.MIN_VALUE};
+		int roundFittest = Integer.MIN_VALUE;
 
 		WeightsFitnessPair currentFittestPair = null;
 
@@ -193,8 +196,8 @@ public class PlayerSkeleton {
 			int weightsFitness = runState(weightChromosomes.get(i));
 			WeightsFitnessPair weightsFitnessPair = new WeightsFitnessPair(weightChromosomes.get(i), weightsFitness);
 			weightChromosomePopulation.add(weightsFitnessPair);
-			if (weightsFitness > roundFittest[0]){
-				roundFittest[0] = weightsFitness;
+			if (weightsFitness > roundFittest){
+				roundFittest = weightsFitness;
 				currentFittestPair = weightsFitnessPair;
 			}
 			//make sure at least its initialized
@@ -207,16 +210,16 @@ public class PlayerSkeleton {
 		// Re run until found the fittest
 		// try to escape from local maxima by allowing degrading by going down 10%
 		int counter = 0;
-		while (roundFittest[0] >= ( 0.9 * currentFittestPair.getFitness()) && localMaximaRetry < 100 ){
+		ExecutorService taskExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+		while (roundFittest >= ( 0.9 * currentFittestPair.getFitness()) && localMaximaRetry < 100 ){
 			final Vector<WeightsFitnessPair> newPopulation = new Vector<WeightsFitnessPair>();
-			roundFittest[0] = Integer.MIN_VALUE;
-			final WeightsFitnessPair[] roundFittestPair = {null};
-			ExecutorService taskExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+			roundFittest = Integer.MIN_VALUE;
+			WeightsFitnessPair roundFittestPair = null;
 			final Vector<WeightsFitnessPair> finalWeightChromosomePopulation = weightChromosomePopulation;
 			for (int i = 0; i < weightChromosomePopulation.size(); i++){
-				taskExecutor.submit(new Runnable() {
+				Future<WeightsFitnessPair> childFitnessPair = taskExecutor.submit(new Callable<WeightsFitnessPair>() {
 					@Override
-					public void run() {
+					public WeightsFitnessPair call() {
 						//Choose 4 parents candidate
 						int candidateAIdx = (int) Math.floor(finalWeightChromosomePopulation.size() * RANDOM_GENERATOR.nextDouble());
 						int candidateBIdx = (int) Math.floor(finalWeightChromosomePopulation.size() * RANDOM_GENERATOR.nextDouble());
@@ -252,24 +255,30 @@ public class PlayerSkeleton {
 						double[] childWeights = Reproduce(parentX.getWeights(), parentY.getWeights(), parentX.getWeights().length);
 						int childFitness = runState(childWeights);
 						WeightsFitnessPair childFitnessPair = new WeightsFitnessPair(childWeights, childFitness);
-						//make sure of consistency
-						if (childFitness > roundFittest[0]) {
-							roundFittest[0] = childFitness;
-							roundFittestPair[0] = childFitnessPair;
-						}
-						if (roundFittestPair[0] == null)
-							roundFittestPair[0] = childFitnessPair;
-						newPopulation.add(childFitnessPair);
+						return childFitnessPair;
 					}
 				});
+				try {
+					if(childFitnessPair.get().getFitness()>roundFittest) {
+						roundFittest = childFitnessPair.get().getFitness();
+						roundFittestPair = childFitnessPair.get();
+					}
+					if(roundFittestPair==null)
+						roundFittestPair=childFitnessPair.get();
+					newPopulation.add(childFitnessPair.get());
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				} catch (ExecutionException e) {
+					e.printStackTrace();
+				}
 			}
 			try {
 				taskExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
 			} catch (InterruptedException ie) {
 				ie.printStackTrace();
 			}
-			if (roundFittestPair[0].getFitness() > currentFittestPair.getFitness()) {
-				currentFittestPair = roundFittestPair[0];
+			if (roundFittestPair.getFitness() > currentFittestPair.getFitness()) {
+				currentFittestPair = roundFittestPair;
 				localMaximaRetry = 0;
 			} else
 				localMaximaRetry++;
@@ -280,7 +289,6 @@ public class PlayerSkeleton {
 		}
 		writer.close();
 		return currentFittestPair.getWeights();
-
 	}
 
 
@@ -336,7 +344,7 @@ public class PlayerSkeleton {
 				return nextMove;
 			}
 		});
-
+		LOGGER.info("Score: " + g.score());
 		return g.score();
 	}
 
