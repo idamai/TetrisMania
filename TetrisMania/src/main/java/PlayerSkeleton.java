@@ -222,9 +222,8 @@ public class PlayerSkeleton {
 			System.out.println("Tasks ran after initial: " + tasks.size());
 			System.out.println("Results size after initial: " + results.size());
 			for (Future<WeightsFitnessPair> it : results){
-				if (currentFittestPair == null ||  it.get().getFitness() > roundFittest){
+				if (currentFittestPair == null ||  it.get().getFitness() > currentFittestPair.getFitness()){
 					currentFittestPair = it.get();
-					roundFittest = it.get().getFitness();
 				}
 				weightChromosomePopulation.add(it.get());
 			}
@@ -243,7 +242,7 @@ public class PlayerSkeleton {
 		int counter = 0;
 		final WeightsFitnessPair finalCurrentFittestPair = currentFittestPair;
 		WeightsFitnessPair roundFittestPair = currentFittestPair;
-		while (roundFittest >= (ACCEPTABLE_SCORE_COEFF * currentFittestPair.getFitness())
+		while (roundFittestPair.getFitness() >= (ACCEPTABLE_SCORE_COEFF * currentFittestPair.getFitness())
 				&& localMaximaRetry < LOCAL_MAXIMA_THRESHOLD) {
 			Vector<WeightsFitnessPair> newPopulation = new Vector<WeightsFitnessPair>();
 			roundFittest = Integer.MIN_VALUE;
