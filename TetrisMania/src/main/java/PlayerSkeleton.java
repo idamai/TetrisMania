@@ -241,14 +241,15 @@ public class PlayerSkeleton {
 			roundFittest = Integer.MIN_VALUE;
 			WeightsFitnessPair roundFittestPair = null;
 			//parallelize stuffs to run in each round
+			final Vector<WeightsFitnessPair> finalWeightChromosomePopulation = weightChromosomePopulation;
 
-			tasks = new ArrayList<Callable<WeightsFitnessPair>>(weightChromosomePopulation.size());
-			for (int i = 0; i < weightChromosomePopulation.size(); i++) {
+			tasks = new ArrayList<Callable<WeightsFitnessPair>>(finalWeightChromosomePopulation.size());
+			for (int i = 0; i < finalWeightChromosomePopulation.size(); i++) {
 				tasks.add(new Callable<WeightsFitnessPair>() {
 					@Override
 					public WeightsFitnessPair call(){
 						double[] childWeights = ProduceChild(finalCurrentFittestPair,
-								weightChromosomePopulation);
+								finalWeightChromosomePopulation);
 						int childFitness = runState(childWeights);
 						return new WeightsFitnessPair(childWeights, childFitness);
 					}
@@ -257,8 +258,8 @@ public class PlayerSkeleton {
 
 			try {
 				results = taskExecutor.invokeAll(tasks, Long.MAX_VALUE, TimeUnit.SECONDS);
-				System.out.println("Tasks ran: " + tasks.size());
-				System.out.println("Results got: " + results.size());
+				System.out.println(tasks.size());
+				System.out.println(results.size());
 				for (Future<WeightsFitnessPair> future: results){
 					if (roundFittestPair == null || future.get().getFitness() > roundFittestPair.getFitness()) {
 						roundFittestPair = future.get();
