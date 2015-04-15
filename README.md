@@ -41,3 +41,23 @@ Uses maven for dependencies, junit testing, JAR executable deployment and creati
 6. Submit pull request.
 7. Download Maven.
 
+
+
+## Running the batch script
+
+Batch script uses `pm2` and `nodejs`.  To install,
+
+    $ npm install -g pm2
+
+Run the script:
+
+    ## 10 is the number of nodes to run
+    $ ./dev 10
+
+See the running processes:
+
+    $ pm2 l
+    
+See the logs
+
+    $ pm2 logs
