@@ -23,7 +23,7 @@ import java.util.logging.Logger;
  */
 public class PlayerSkeleton {
 	private static PlayerSkeleton _instance = null;
-	private static int NUM_OF_RANDOM_CHROMOSOME = 5000;
+	private static int NUM_OF_RANDOM_CHROMOSOME = 10000;
 	private static Random RANDOM_GENERATOR = new Random();
 
 	private static String LOG_ROWS_CLEARED = "Highscore: %1$s. Turn: %2$s";
