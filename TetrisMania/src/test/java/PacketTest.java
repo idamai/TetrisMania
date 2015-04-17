@@ -20,10 +20,14 @@ public class PacketTest {
   public void testToAndFromBytesWorks() throws Exception {
     String header = "hello";
     String payload = "world";
-    Packet p = new Packet(header, payload);
+    String ip = "localhost";
+    int port = 8000;
+    Packet p = new Packet(ip, port, header, payload);
     Packet p2 = new Packet(p.toBytes());
 
     assertTrue(p2.getHeader().equals(header));
     assertTrue(p2.getPayload().equals(payload));
+    assertTrue(p2.getPort().equals(port));
+    assertTrue(p2.getIp().equals(ip));
   }
 }

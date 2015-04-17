@@ -1,16 +1,8 @@
 import java.io.*;
+import java.net.*;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.Scanner;
-import java.util.Vector;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.logging.Logger;
 
 /**
@@ -509,6 +501,26 @@ class WeightsFitnessPair {
 class Packet {
   private String header;
   private String payload;
+  private String ip;
+  private int port;
+
+  public int getPort() {
+    return port;
+  }
+
+  public void setPort(int port) {
+    this.port = port;
+  }
+
+
+  public String getIp() {
+    return ip;
+  }
+
+  public void setIp(String ip) {
+    this.ip = ip;
+  }
+
 
   public String getHeader() {
     return header;
@@ -527,44 +539,176 @@ class Packet {
   }
 
   public Packet(byte[] in) {
-    int headerLen, payloadLen;
-    byte[] bHeader, bPayload;
+    int headerLen, payloadLen, ipLen;
+    byte[] bHeader, bPayload, bIp;
     ByteBuffer bf = ByteBuffer.wrap(in);
 
+    this.port = bf.getInt();
     headerLen = bf.getInt();
     payloadLen = bf.getInt();
+    ipLen = bf.getInt();
     bHeader = new byte[headerLen];
     bPayload = new byte[payloadLen];
+    bIp = new byte[ipLen];
 
     bf.get(bHeader, bf.arrayOffset(), headerLen);
     bf.get(bPayload, bf.arrayOffset(), payloadLen);
+    bf.get(bIp, bf.arrayOffset(), ipLen);
 
     try {
       this.header = new String(bHeader, "UTF-8");
       this.payload = new String(bPayload, "UTF-8");
+      this.ip = new String (bIp, "UTF-8");
     } catch (UnsupportedEncodingException e) {
+    }
+  }
+
+
+  public Packet(String ip, int port, String header, String payload) {
+    this.header = header;
+    this.payload = payload;
+    this.ip = ip;
+    this.port = port;
+  }
+
+
+  public byte[] toBytes() {
+    byte[] bHeader, bPayload, bIp;
+    ByteBuffer buff;
+    int size;
+    bHeader = header.getBytes();
+    bPayload = payload.getBytes();
+    bIp = ip.getBytes();
+    // 2 ints
+    size = bHeader.length + bPayload.length + 4 + 4 + 4 + 4;
+    buff = ByteBuffer.allocate(size);
+    buff.putInt(port);
+    buff.putInt(bHeader.length).putInt(bPayload.length).putInt(bIp.length);
+    buff.put(bHeader).put(bPayload).put(bIp);
+    return buff.array();
+  }
+}
+
+
+class Server {
+
+  public static final int PORT = 9000;
+  protected int port;
+  protected volatile DatagramSocket incoming, outgoing;
+  protected boolean isRunning;
+  protected volatile Queue<Packet> sendQueue, recvQueue;
+
+  public Server(int port) {
+    this.port = port;
+    isRunning = false;
+  }
+
+
+  public Server stop() {
+    isRunning = false;
+    return this;
+  }
+
+
+  public Server start() throws SocketException {
+    if (isRunning) {
+      return this;
+    }
+
+    isRunning = true;
+
+    incoming = new DatagramSocket();
+    incoming.setReuseAddress(true);
+    incoming.bind(new InetSocketAddress((port)));
+
+    outgoing = new DatagramSocket();
+
+    sendQueue = new LinkedBlockingQueue<Packet>();
+    recvQueue = new LinkedBlockingQueue<Packet>();
+
+    Runnable inBound = new Runnable() {
+      @Override
+      public void run() {
+        while (isRunning) {
+          byte[] buffer = new byte[2048];
+          Packet p;
+          DatagramPacket datagramPacket = new DatagramPacket(buffer, buffer.length);
+          try {
+            incoming.receive(datagramPacket);
+            p = new Packet(buffer);
+            recvQueue.offer(p);
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
+        }
+      }
+    };
+
+
+    Runnable outBound = new Runnable() {
+      @Override
+      public void run() {
+        while (isRunning) {
+          while (sendQueue.size() > 0) {
+            Packet p = sendQueue.poll();
+            sendPacket(p);
+          }
+        }
+      }
+    };
+
+
+    Runnable processThread = new Runnable() {
+      @Override
+      public void run() {
+        while (isRunning) {
+          process();
+        }
+      }
+    };
+
+    new Thread(inBound).start();
+    new Thread(outBound).start();
+    new Thread(processThread).start();
+
+    Core.sleep(500);
+
+    System.out.println("Node started.");
+    return this;
+  }
+
+
+  /**
+   * Override this
+   */
+  protected void process() {
+
+  }
+
+
+  private void sendPacket(Packet p) {
+    if (outgoing == null) return;
+    byte[] data = p.toBytes();
+    try {
+      outgoing.send(new DatagramPacket(data,
+              data.length,
+              makeAddr(p.getIp()),
+              port));
+    } catch (IOException e) {
       e.printStackTrace();
     }
   }
 
 
-  public Packet(String header, String payload) {
-    this.header = header;
-    this.payload = payload;
-  }
-
-
-  public byte[] toBytes() {
-    byte[] bHeader, bPayload;
-    ByteBuffer buff;
-    int size;
-    bHeader = header.getBytes();
-    bPayload = payload.getBytes();
-    // 2 ints
-    size = bHeader.length + bPayload.length + 4 + 4;
-    buff = ByteBuffer.allocate(size);
-    buff.putInt(bHeader.length).putInt(bPayload.length);
-    buff.put(bHeader).put(bPayload);
-    return buff.array();
+  private InetAddress makeAddr(String addr) throws MalformedURLException, UnknownHostException {
+    InetAddress result = null;
+    try {
+      result = InetAddress.getByName(addr);
+    } catch (UnknownHostException e) {
+      result = InetAddress.getByName(new URL(addr).getHost());
+    }
+    return result;
   }
 }
+
+
