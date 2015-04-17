@@ -503,6 +503,16 @@ class Packet {
   private String payload;
   private String ip;
   private int port;
+  private String origin; // this is only set and not sent when toBytes() is called
+
+  public String getOrigin() {
+    return origin;
+  }
+
+  public void setOrigin(String origin) {
+    this.origin = origin;
+  }
+
 
   public int getPort() {
     return port;
@@ -539,6 +549,7 @@ class Packet {
   }
 
   public Packet(byte[] in) {
+    origin = null;
     int headerLen, payloadLen, ipLen;
     byte[] bHeader, bPayload, bIp;
     ByteBuffer bf = ByteBuffer.wrap(in);
@@ -600,6 +611,89 @@ class Packet {
 }
 
 
+
+
+class Slave extends SimpleNode {
+  class State {
+    public static final int READY = 0;
+    public static final int BUSY = 1;
+    public static final int STOP = 2;
+  }
+  private final long PING_INTERVAL = 2000;
+  private volatile long refTime;
+  private String masterIp;
+  private int masterPort;
+  private long id;
+  private int state;
+
+  public Slave(String masterIp, int masterPort, int port) {
+    super(port);
+    this.masterIp = masterIp;
+    this.masterPort = masterPort;
+    refTime = 0;
+    state = State.READY;
+    id = UUID.randomUUID().getMostSignificantBits();
+  }
+
+
+  private void doPing() {
+    if ((System.currentTimeMillis() - refTime) > PING_INTERVAL) {
+      refTime = System.currentTimeMillis();
+      this.send(new Packet(masterIp, masterPort, "PING", <<JSON HERE>>)); // TODO add json here
+    }
+  }
+
+
+  @Override
+  protected void process() {
+    doPing();
+  }
+
+
+  @Override
+  public SimpleNode start() throws SocketException {
+    super.start();
+    state = State.READY;
+    return this;
+  }
+
+
+  @Override
+  public SimpleNode stop() {
+    super.stop();
+    state = State.STOP;
+    return this;
+  }
+}
+
+
+
+class Master extends SimpleNode {
+  class IpPort {
+    public String ip;
+    public int port;
+  }
+
+  public Map<String, IpPort> slaves;
+
+  public Master(int port) {
+    super(port);
+    slaves = new ConcurrentHashMap<>();
+  }
+
+  @Override
+  protected void process() {
+    super.process();
+    while (hasNext()) {
+      Packet p = next();
+      if (p.getHeader().equals("PING")) {
+        // TODO implement this
+      }
+    }
+  }
+}
+
+
 class SimpleNode {
   protected int port;
   protected volatile DatagramSocket incoming, outgoing;
@@ -644,6 +738,7 @@ class SimpleNode {
           try {
             incoming.receive(datagramPacket);
             p = new Packet(buffer);
+            p.setOrigin(datagramPacket.getAddress().getHostAddress());
             recvQueue.offer(p);
           } catch (IOException e) {
             e.printStackTrace();
