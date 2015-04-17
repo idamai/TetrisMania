@@ -1,9 +1,5 @@
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.io.PrintWriter;
+import java.io.*;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -504,4 +500,71 @@ class WeightsFitnessPair {
 		str += fitness;
 		return str;
 	}
+
+
+
+}
+
+
+class Packet {
+  private String header;
+  private String payload;
+
+  public String getHeader() {
+    return header;
+  }
+
+  public void setHeader(String header) {
+    this.header = header;
+  }
+
+  public String getPayload() {
+    return payload;
+  }
+
+  public void setPayload(String payload) {
+    this.payload = payload;
+  }
+
+  public Packet(byte[] in) {
+    int headerLen, payloadLen;
+    byte[] bHeader, bPayload;
+    ByteBuffer bf = ByteBuffer.wrap(in);
+
+    headerLen = bf.getInt();
+    payloadLen = bf.getInt();
+    bHeader = new byte[headerLen];
+    bPayload = new byte[payloadLen];
+
+    bf.get(bHeader, bf.arrayOffset(), headerLen);
+    bf.get(bPayload, bf.arrayOffset(), payloadLen);
+
+    try {
+      this.header = new String(bHeader, "UTF-8");
+      this.payload = new String(bPayload, "UTF-8");
+    } catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    }
+  }
+
+
+  public Packet(String header, String payload) {
+    this.header = header;
+    this.payload = payload;
+  }
+
+
+  public byte[] toBytes() {
+    byte[] bHeader, bPayload;
+    ByteBuffer buff;
+    int size;
+    bHeader = header.getBytes();
+    bPayload = payload.getBytes();
+    // 2 ints
+    size = bHeader.length + bPayload.length + 4 + 4;
+    buff = ByteBuffer.allocate(size);
+    buff.putInt(bHeader.length).putInt(bPayload.length);
+    buff.put(bHeader).put(bPayload);
+    return buff.array();
+  }
 }
