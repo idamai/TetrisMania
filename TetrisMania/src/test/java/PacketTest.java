@@ -27,7 +27,7 @@ public class PacketTest {
 
     assertTrue(p2.getHeader().equals(header));
     assertTrue(p2.getPayload().equals(payload));
-    assertTrue(p2.getPort().equals(port));
+    assertEquals(p2.getPort(), port);
     assertTrue(p2.getIp().equals(ip));
   }
 }

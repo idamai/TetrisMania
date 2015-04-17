@@ -579,52 +579,60 @@ class Packet {
     bHeader = header.getBytes();
     bPayload = payload.getBytes();
     bIp = ip.getBytes();
-    // 2 ints
-    size = bHeader.length + bPayload.length + 4 + 4 + 4 + 4;
+    // 4 ints
+    size = bHeader.length + bPayload.length + bIp.length + 4 + 4 + 4 + 4;
     buff = ByteBuffer.allocate(size);
     buff.putInt(port);
     buff.putInt(bHeader.length).putInt(bPayload.length).putInt(bIp.length);
     buff.put(bHeader).put(bPayload).put(bIp);
     return buff.array();
   }
+
+
+  @Override
+  public String toString() {
+    return "<PACKET> " +
+            "IP=" + ip + " " +
+            "PORT=" + port + " " +
+            "Header=" + header + " " +
+            "Payload=" + payload;
+  }
 }
 
 
-class Server {
-
-  public static final int PORT = 9000;
+class SimpleNode {
   protected int port;
   protected volatile DatagramSocket incoming, outgoing;
   protected boolean isRunning;
-  protected volatile Queue<Packet> sendQueue, recvQueue;
+  protected volatile LinkedBlockingQueue<Packet> sendQueue, recvQueue;
 
-  public Server(int port) {
+  public SimpleNode(int port) {
     this.port = port;
     isRunning = false;
   }
 
 
-  public Server stop() {
+  public SimpleNode stop() {
     isRunning = false;
     return this;
   }
 
 
-  public Server start() throws SocketException {
+  public SimpleNode start() throws SocketException {
     if (isRunning) {
       return this;
     }
 
     isRunning = true;
 
-    incoming = new DatagramSocket();
+    incoming = new DatagramSocket(null);
     incoming.setReuseAddress(true);
     incoming.bind(new InetSocketAddress((port)));
 
     outgoing = new DatagramSocket();
 
-    sendQueue = new LinkedBlockingQueue<Packet>();
-    recvQueue = new LinkedBlockingQueue<Packet>();
+    sendQueue = new LinkedBlockingQueue<>();
+    recvQueue = new LinkedBlockingQueue<>();
 
     Runnable inBound = new Runnable() {
       @Override
@@ -686,6 +694,21 @@ class Server {
   }
 
 
+  public void send(Packet p) {
+    sendQueue.add(p);
+  }
+
+
+  public Packet next() {
+    return recvQueue.poll();
+  }
+
+
+  public boolean hasNext() {
+    return !recvQueue.isEmpty();
+  }
+
+
   private void sendPacket(Packet p) {
     if (outgoing == null) return;
     byte[] data = p.toBytes();
@@ -693,7 +716,7 @@ class Server {
       outgoing.send(new DatagramPacket(data,
               data.length,
               makeAddr(p.getIp()),
-              port));
+              p.getPort()));
     } catch (IOException e) {
       e.printStackTrace();
     }
