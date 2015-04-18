@@ -41,3 +41,50 @@ Uses maven for dependencies, junit testing, JAR executable deployment and creati
 6. Submit pull request.
 7. Download Maven.
 
+
+
+## Running the batch script
+
+Batch script uses `pm2` and `nodejs`.  To install,
+
+    $ npm install -g pm2
+
+Run the script:
+
+    ## 10 is the number of nodes to run
+    $ ./dev 10
+
+See the running processes:
+
+    $ pm2 l
+    
+See the logs
+
+    $ pm2 logs
+
+
+
+## Distributed computing
+
+In addition to normal GA, our algorithm features a distributed computing algorithm over multiple
+computers, following a Master-Slave model.  This is done via sending UDP packets across the network.
+The best weights are then gathered and run.
+
+### Running slave nodes
+
+All slaves must be run before the master is run.  This is to allow the notifications to be propagated to master.
+
+    $ java -cp . -jar TetrisMania-1.0-SNAPSHOT-jar-with-dependencies.jar slave <HOST IP> <HOST PORT> <SLAVE PORT>
+    $ ## Example
+    $ java -cp . -jar TetrisMania-1.0-SNAPSHOT-jar-with-dependencies.jar slave localhost 9000 9001
+
+
+### Running master
+
+Master then runs.  It pends until all available slaves have submitted their results.
+
+    $ java -jar TetrisMania-1.0-SNAPSHOT-jar-with-dependencies.jar master <INPUT PORT>
+    $ ## Example
+    $ java -jar TetrisMania-1.0-SNAPSHOT-jar-with-dependencies.jar master 9000
+
+
