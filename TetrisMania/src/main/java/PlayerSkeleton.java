@@ -442,10 +442,13 @@ public class PlayerSkeleton {
       String masterAddr = args[1];
       int masterPort = Integer.parseInt(args[2]);
       int port = Integer.parseInt(args[3]);
-      Slave slave = new Slave(masterAddr, masterPort, port);
       try {
-        slave.start();
-        while (true) ; // infinite loop, slave never stops!
+        while (true) {
+          Slave slave = new Slave(masterAddr, masterPort, port);
+          slave.start();
+          while (!slave.isDone) ; // infinite loop, slave never stops!
+          slave.stop();
+        }
       } catch (SocketException e) {
         e.printStackTrace();
       }
@@ -679,12 +682,14 @@ class Slave extends SimpleNode {
   private volatile int masterPort;
   private volatile String id;
   private volatile int state;
+  public volatile boolean isDone;
 
   // the first item is score, remaining are weights
   double[] results = null;
 
   public Slave(String masterIp, int masterPort, int port) {
     super(port);
+    this.isDone = false;
     this.masterIp = masterIp;
     this.masterPort = masterPort;
     refTime = 0;
@@ -760,6 +765,7 @@ class Slave extends SimpleNode {
       }
 
     } else if (state == NodeState.DONE) {
+      this.isDone = true;
     }
   }
 
@@ -801,6 +807,7 @@ class Master extends SimpleNode {
   public Map<String, IpPort> slaves;
   public volatile ConcurrentHashMap<String, Boolean> slaveIds;
   public volatile TreeMap<Double, Double[]> results; // the first is score, second is weights
+  private int totalRepliesExpected;
 
   private class IpPort {
     public String ip;
@@ -831,6 +838,7 @@ class Master extends SimpleNode {
   @Override
   public SimpleNode start() throws SocketException {
     super.start();
+    slaves = new ConcurrentHashMap<>();
     state = NodeState.READY;
     return this;
   }
@@ -857,29 +865,7 @@ class Master extends SimpleNode {
     return results.lastEntry();
   }
 
-
-  private Thread computeFinalThread = new Thread(new Runnable() {
-    @Override
-    public void run() {
-      System.out.println("--- ALL SLAVES COMPLETED ---");
-      System.out.println("RESULTS:");
-      printResults();
-
-      System.out.println("BEST RESULT:");
-      Map.Entry<Double, Double[]> best = bestResult();
-      Double bestScore = best.getKey();
-      Double[] bestWeights = best.getValue();
-
-      System.out.println("Executing final iteration..");
-      int finalScore = PlayerSkeleton.runState(Core.convertBigToSmall(bestWeights));
-
-      System.out.println("FINAL RESULT");
-      System.out.println("Number of slaves: " + slaves.size());
-      System.out.println("Final Score: " + finalScore);
-      System.out.println("Final weights: " + Arrays.toString(bestWeights));
-
-    }
-  });
+  private Thread computeFinalThread;
 
   @Override
   protected void process() {
@@ -898,6 +884,31 @@ class Master extends SimpleNode {
       state = NodeState.EXECUTE_FINAL_START;
 
     } else if (state == NodeState.EXECUTE_FINAL_START) {
+      computeFinalThread = new Thread(new Runnable() {
+        @Override
+        public void run() {
+          System.out.println("--- ALL SLAVES COMPLETED ---");
+          System.out.println("RESULTS:");
+          printResults();
+
+          System.out.println("BEST RESULT:");
+          Map.Entry<Double, Double[]> best = bestResult();
+          if (best == null) return;
+          Double bestScore = best.getKey();
+          Double[] bestWeights = best.getValue();
+
+          System.out.println("Executing final iteration..");
+          int finalScore = PlayerSkeleton.runState(Core.convertBigToSmall(bestWeights));
+
+          System.out.println("FINAL RESULT");
+          System.out.println("Number of slaves: " + slaveIds.size());
+          System.out.println("Final Score: " + finalScore);
+          System.out.println("Final weights: " + Arrays.toString(bestWeights));
+
+        }
+      });
+
+
       computeFinalThread.start();
       state = NodeState.EXECUTE_FINAL_BUSY;
 
@@ -918,9 +929,15 @@ class Master extends SimpleNode {
     if (slaveIds == null) {
       return false;
     }
+
+//    if (slaveIds.size() != totalRepliesExpected) {
+//      return false;
+//    }
+
     for (boolean isDone : slaveIds.values()) {
       if (!isDone) return false;
     }
+
     return true;
   }
 
@@ -960,6 +977,7 @@ class Master extends SimpleNode {
     state = NodeState.BUSY;
     results = new TreeMap<>(); // get new results on every itr
     getActiveSlaves(); // update active slaves list
+    totalRepliesExpected = slaves.size();
     broadcast((Set<String>) slaveIds.keySet(), new Packet("", 0, "RUN", ""));
   }
 
