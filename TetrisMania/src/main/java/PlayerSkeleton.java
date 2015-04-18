@@ -11,7 +11,7 @@ import java.util.logging.Logger;
 public class PlayerSkeleton {
   private static PlayerSkeleton _instance = null;
   //  private static int NUM_OF_RANDOM_CHROMOSOME = 10000;
-  private static int NUM_OF_RANDOM_CHROMOSOME = 2;
+  private static int NUM_OF_RANDOM_CHROMOSOME = 10000;
   private static int LOCAL_MAXIMA_THRESHOLD = 5;
   private static double ACCEPTABLE_SCORE_COEFF = 0.8;
   private static double SAMPLING_COEFFICIENT = 0.1;
