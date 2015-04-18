@@ -1,4 +1,5 @@
 import java.io.*;
+import java.lang.reflect.Array;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -10,7 +11,8 @@ import java.util.logging.Logger;
  */
 public class PlayerSkeleton {
   private static PlayerSkeleton _instance = null;
-  private static int NUM_OF_RANDOM_CHROMOSOME = 10000;
+  //  private static int NUM_OF_RANDOM_CHROMOSOME = 10000;
+  private static int NUM_OF_RANDOM_CHROMOSOME = 2;
   private static int LOCAL_MAXIMA_THRESHOLD = 5;
   private static double ACCEPTABLE_SCORE_COEFF = 0.8;
   private static double SAMPLING_COEFFICIENT = 0.1;
@@ -274,6 +276,7 @@ public class PlayerSkeleton {
     }
     writer.println("Exiting GA");
     writer.close();
+    taskExecutor.shutdownNow(); // terminate all remaining running threads
     return currentFittestPair.getWeights();
   }
 
@@ -409,7 +412,7 @@ public class PlayerSkeleton {
       e.printStackTrace();
     }
     System.out.println("ended");
-    System.exit(0);
+//    System.exit(0);
     return;
   }
 
@@ -502,7 +505,6 @@ class Packet {
 
 
   /**
-   *
    * Performs deep clone of object
    *
    * @return
@@ -638,6 +640,8 @@ class Slave extends SimpleNode {
   private volatile String id;
   private volatile int state;
 
+  double[] results = null;
+
   public Slave(String masterIp, int masterPort, int port) {
     super(port);
     this.masterIp = masterIp;
@@ -667,10 +671,25 @@ class Slave extends SimpleNode {
     @Override
     public void run() {
       System.out.println("COMPUTING");
-      Core.sleep(2000);
+      Vector<double[]> weightChromosomes = PlayerSkeleton.generateWeightChromosome(21);
+      try {
+        results = PlayerSkeleton.GeneticAlgorithm(weightChromosomes);
+//        for (int i = 0; i < results.length; i++) {
+//          System.out.print(results[i] + " ");
+//        }
+        System.out.println();
+      } catch (IOException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
       System.out.println("ENDED COMPUTING");
     }
   });
+
+
+  private String ArrayToCommaString(double[] in) {
+    return Arrays.toString(in).replace("[", "").replace("]", "");
+  }
 
 
   @Override
@@ -692,8 +711,7 @@ class Slave extends SimpleNode {
       }
 
     } else if (state == NodeState.DONE) {
-      String[] result = {id,"1", "967", "45"};
-      String payload = Arrays.toString(result);
+      String payload = id + "," + ArrayToCommaString(results);
       this.send(new Packet(masterIp, masterPort, "DONE", payload));
     }
   }
@@ -730,28 +748,33 @@ class Slave extends SimpleNode {
 
 
 class Master extends SimpleNode {
+
+  public volatile int state;
+  public Map<String, IpPort> slaves;
+  public volatile ConcurrentHashMap<String, Boolean> slaveIds;
+  protected volatile boolean isDone;
+
+
   class IpPort {
     public String ip;
+
     public int port;
 
     public IpPort(String ip, int port) {
       this.ip = ip;
       this.port = port;
     }
-
     @Override
     public String toString() {
       return "IP=" + ip + " port=" + port;
     }
-  }
 
-  public volatile int state;
-  public Map<String, IpPort> slaves;
-  public volatile ConcurrentHashMap<String, Boolean> slaveIds;
+  }
 
 
   public Master(int port) {
     super(port);
+    isDone = false;
     state = NodeState.STOP;
     slaves = new ConcurrentHashMap<>();
   }
@@ -803,12 +826,12 @@ class Master extends SimpleNode {
     } else if (state == NodeState.EXECUTE_FINAL_BUSY) {
       if (computeFinalThread.getState() == Thread.State.TERMINATED) {
         state = NodeState.EXECUTE_FINAL_DONE;
+        System.out.println("Done!!!");
       }
 
     } else if (state == NodeState.EXECUTE_FINAL_DONE) {
       // TODO add in print out result here
-      System.out.println("Done!!!");
-      this.stop(); // stop the daemon
+      isDone = true;
     }
   }
 
@@ -833,7 +856,7 @@ class Master extends SimpleNode {
         slaves.put(id, new IpPort(p.getOrigin(), Integer.parseInt(port)));
       } else if (header.equals("DONE")) {
         if (state == NodeState.BUSY) {
-          String[] args = Core.tokenize(p.getPayload().replace("[", "").replace("]", ""));
+          String[] args = Core.tokenize(p.getPayload());
           String slaveId = args[0];
           slaveIds.put(slaveId, true); // this ID is done
         }
@@ -921,6 +944,7 @@ class SimpleNode {
 
 
   public SimpleNode stop() {
+    System.out.println("Stopping node..");
     isRunning = false;
     return this;
   }
@@ -958,6 +982,7 @@ class SimpleNode {
             e.printStackTrace();
           }
         }
+        incoming.close();
       }
     };
 
@@ -971,6 +996,7 @@ class SimpleNode {
             sendPacket(p);
           }
         }
+        outgoing.close();
       }
     };
 
@@ -988,7 +1014,7 @@ class SimpleNode {
     new Thread(outBound).start();
     new Thread(processThread).start();
 
-    Core.sleep(500);
+    Core.sleep(100);
 
     System.out.println("Node started.");
     return this;

@@ -20,8 +20,8 @@ public class MasterSlaveTest {
 
   @After
   public void tearDown() throws Exception {
-    master.stop();
     slave1.stop();
+    master.stop();
     slave2.stop();
   }
 
@@ -30,6 +30,8 @@ public class MasterSlaveTest {
     Core.sleep(4000);
     master.display();
     master.runSlaves();
-    Core.sleep(7000);
+
+    while(!master.isDone); // wait until done
+
   }
 }
