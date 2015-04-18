@@ -10,6 +10,7 @@ import java.util.logging.Logger;
  */
 public class PlayerSkeleton {
   private static PlayerSkeleton _instance = null;
+  //  private static int NUM_OF_RANDOM_CHROMOSOME = 10000;
   private static int NUM_OF_RANDOM_CHROMOSOME = 10000;
   private static int LOCAL_MAXIMA_THRESHOLD = 5;
   private static double ACCEPTABLE_SCORE_COEFF = 0.8;
@@ -274,6 +275,7 @@ public class PlayerSkeleton {
     }
     writer.println("Exiting GA");
     writer.close();
+    taskExecutor.shutdownNow(); // terminate all remaining running threads
     return currentFittestPair.getWeights();
   }
 
@@ -392,26 +394,70 @@ public class PlayerSkeleton {
     return g.score();
   }
 
+
   public static void main(String[] args) {
-    // TODO: Add in proper logging library instead of System.out.println
-    // int score = runState(null);
-    // System.out.println("You have completed "+ score +" rows.");
-    // run genetic algo here
-    Vector<double[]> weightChromosomes = generateWeightChromosome(21);
-    try {
-      double[] results = GeneticAlgorithm(weightChromosomes);
-      for (int i = 0; i < results.length; i++) {
-        System.out.print(results[i] + " ");
+    /** Normal operation **/
+    if (args.length == 0) {
+      // int score = runState(null);
+      // System.out.println("You have completed "+ score +" rows.");
+      // run genetic algo here
+      Vector<double[]> weightChromosomes = generateWeightChromosome(21);
+      try {
+        double[] results = GeneticAlgorithm(weightChromosomes);
+        for (int i = 0; i < results.length; i++) {
+          System.out.print(results[i] + " ");
+        }
+        System.out.println();
+      } catch (IOException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
       }
-      System.out.println();
-    } catch (IOException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      System.out.println("ended");
+      System.exit(0);
     }
-    System.out.println("ended");
-    System.exit(0);
+
+    /** Else distributed mode **/
+    if (args.length < 2) System.exit(1); // invalid
+    String type = args[0];
+
+    if (type.equals("master")) {
+      /** Distributed mode / MASTER **/
+      int port = Integer.parseInt(args[1]);
+      Master master = new Master(port);
+      try {
+        master.start();
+        Core.sleep(5000);
+        master.display();
+        master.runSlaves();
+        while (!master.isDone);
+        System.out.println("here");
+        System.exit(0);
+      } catch (SocketException e) {
+        e.printStackTrace();
+      }
+
+    } else if (type.equals("slave")) {
+      /** Distributed mode / SLAVE **/
+      if (args.length < 4) System.exit(1); // invalid
+      String masterAddr = args[1];
+      int masterPort = Integer.parseInt(args[2]);
+      int port = Integer.parseInt(args[3]);
+      try {
+        while (true) {
+          Slave slave = new Slave(masterAddr, masterPort, port);
+          slave.start();
+          while (!slave.isDone) ; // infinite loop, slave never stops!
+          slave.stop();
+        }
+      } catch (SocketException e) {
+        e.printStackTrace();
+      }
+    }
+
+    System.exit(-1);
     return;
   }
+
 
   public static void generateTrainData(String[] args) {
     // generateScores("sim_wgts/sim_wgt_space_100.txt",100);
@@ -502,7 +548,6 @@ class Packet {
 
 
   /**
-   *
    * Performs deep clone of object
    *
    * @return
@@ -637,9 +682,14 @@ class Slave extends SimpleNode {
   private volatile int masterPort;
   private volatile String id;
   private volatile int state;
+  public volatile boolean isDone;
+
+  // the first item is score, remaining are weights
+  double[] results = null;
 
   public Slave(String masterIp, int masterPort, int port) {
     super(port);
+    this.isDone = false;
     this.masterIp = masterIp;
     this.masterPort = masterPort;
     refTime = 0;
@@ -667,10 +717,28 @@ class Slave extends SimpleNode {
     @Override
     public void run() {
       System.out.println("COMPUTING");
-      Core.sleep(2000);
+      Vector<double[]> weightChromosomes = PlayerSkeleton.generateWeightChromosome(21);
+      try {
+        double[] weights = PlayerSkeleton.GeneticAlgorithm(weightChromosomes);
+        double[] score = {PlayerSkeleton.runState(weights)};
+        // the first item is score, remaining are weights
+        results = Core.concatArray(score, weights);
+//        for (int i = 0; i < results.length; i++) {
+//          System.out.print(results[i] + " ");
+//        }
+        System.out.println();
+      } catch (IOException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
       System.out.println("ENDED COMPUTING");
     }
   });
+
+
+  private String ArrayToCommaString(double[] in) {
+    return Arrays.toString(in).replace("[", "").replace("]", "");
+  }
 
 
   @Override
@@ -689,12 +757,15 @@ class Slave extends SimpleNode {
     } else if (state == NodeState.BUSY) {
       if (computeGamethread.getState() == Thread.State.TERMINATED) {
         state = NodeState.DONE;
+        // send 3 times to minimize possibility of packet loss
+        String payload = id + "," + ArrayToCommaString(results);
+        this.send(new Packet(masterIp, masterPort, "DONE", payload));
+        this.send(new Packet(masterIp, masterPort, "DONE", payload));
+        this.send(new Packet(masterIp, masterPort, "DONE", payload));
       }
 
     } else if (state == NodeState.DONE) {
-      String[] result = {id,"1", "967", "45"};
-      String payload = Arrays.toString(result);
-      this.send(new Packet(masterIp, masterPort, "DONE", payload));
+      this.isDone = true;
     }
   }
 
@@ -730,8 +801,17 @@ class Slave extends SimpleNode {
 
 
 class Master extends SimpleNode {
-  class IpPort {
+
+  protected volatile boolean isDone;
+  public volatile int state;
+  public Map<String, IpPort> slaves;
+  public volatile ConcurrentHashMap<String, Boolean> slaveIds;
+  public volatile TreeMap<Double, Double[]> results; // the first is score, second is weights
+  private int totalRepliesExpected;
+
+  private class IpPort {
     public String ip;
+
     public int port;
 
     public IpPort(String ip, int port) {
@@ -743,15 +823,13 @@ class Master extends SimpleNode {
     public String toString() {
       return "IP=" + ip + " port=" + port;
     }
-  }
 
-  public volatile int state;
-  public Map<String, IpPort> slaves;
-  public volatile ConcurrentHashMap<String, Boolean> slaveIds;
+  }
 
 
   public Master(int port) {
     super(port);
+    isDone = false;
     state = NodeState.STOP;
     slaves = new ConcurrentHashMap<>();
   }
@@ -760,6 +838,7 @@ class Master extends SimpleNode {
   @Override
   public SimpleNode start() throws SocketException {
     super.start();
+    slaves = new ConcurrentHashMap<>();
     state = NodeState.READY;
     return this;
   }
@@ -773,12 +852,20 @@ class Master extends SimpleNode {
   }
 
 
-  private Thread computeFinalThread = new Thread(new Runnable() {
-    @Override
-    public void run() {
-      System.out.println("Executing final iteration..");
+  private synchronized void printResults() {
+    for (Map.Entry<Double, Double[]> ele : results.entrySet()) {
+      Double score = ele.getKey();
+      Double[] weights = ele.getValue();
+      System.out.println("[ " + score + "] = " + Arrays.toString(weights));
     }
-  });
+  }
+
+
+  private Map.Entry<Double, Double[]> bestResult() {
+    return results.lastEntry();
+  }
+
+  private Thread computeFinalThread;
 
   @Override
   protected void process() {
@@ -797,26 +884,60 @@ class Master extends SimpleNode {
       state = NodeState.EXECUTE_FINAL_START;
 
     } else if (state == NodeState.EXECUTE_FINAL_START) {
+      computeFinalThread = new Thread(new Runnable() {
+        @Override
+        public void run() {
+          System.out.println("--- ALL SLAVES COMPLETED ---");
+          System.out.println("RESULTS:");
+          printResults();
+
+          System.out.println("BEST RESULT:");
+          Map.Entry<Double, Double[]> best = bestResult();
+          if (best == null) return;
+          Double bestScore = best.getKey();
+          Double[] bestWeights = best.getValue();
+
+          System.out.println("Executing final iteration..");
+          int finalScore = PlayerSkeleton.runState(Core.convertBigToSmall(bestWeights));
+
+          System.out.println("FINAL RESULT");
+          System.out.println("Number of slaves: " + slaveIds.size());
+          System.out.println("Final Score: " + finalScore);
+          System.out.println("Final weights: " + Arrays.toString(bestWeights));
+
+        }
+      });
+
+
       computeFinalThread.start();
       state = NodeState.EXECUTE_FINAL_BUSY;
 
     } else if (state == NodeState.EXECUTE_FINAL_BUSY) {
       if (computeFinalThread.getState() == Thread.State.TERMINATED) {
         state = NodeState.EXECUTE_FINAL_DONE;
+        System.out.println("Done!!!");
       }
 
     } else if (state == NodeState.EXECUTE_FINAL_DONE) {
       // TODO add in print out result here
-      System.out.println("Done!!!");
-      this.stop(); // stop the daemon
+      isDone = true;
     }
   }
 
 
   private boolean slavesDone() {
+    if (slaveIds == null) {
+      return false;
+    }
+
+//    if (slaveIds.size() != totalRepliesExpected) {
+//      return false;
+//    }
+
     for (boolean isDone : slaveIds.values()) {
       if (!isDone) return false;
     }
+
     return true;
   }
 
@@ -831,11 +952,15 @@ class Master extends SimpleNode {
         String id = tokens[0];
         String port = tokens[1];
         slaves.put(id, new IpPort(p.getOrigin(), Integer.parseInt(port)));
+
       } else if (header.equals("DONE")) {
         if (state == NodeState.BUSY) {
-          String[] args = Core.tokenize(p.getPayload().replace("[", "").replace("]", ""));
-          String slaveId = args[0];
+          String[] args = Core.tokenize(p.getPayload());
+          String slaveId = args[0] + "";
+          double score = Double.parseDouble(args[1]);
+          Double[] weights = Core.convertStrArrayToDoubleArr(Arrays.copyOfRange(args, 2, args.length - 1));
           slaveIds.put(slaveId, true); // this ID is done
+          results.put(score, weights);
         }
       }
     }
@@ -850,7 +975,9 @@ class Master extends SimpleNode {
       return;
     }
     state = NodeState.BUSY;
+    results = new TreeMap<>(); // get new results on every itr
     getActiveSlaves(); // update active slaves list
+    totalRepliesExpected = slaves.size();
     broadcast((Set<String>) slaveIds.keySet(), new Packet("", 0, "RUN", ""));
   }
 
@@ -921,6 +1048,7 @@ class SimpleNode {
 
 
   public SimpleNode stop() {
+    System.out.println("Stopping node..");
     isRunning = false;
     return this;
   }
@@ -958,6 +1086,7 @@ class SimpleNode {
             e.printStackTrace();
           }
         }
+        incoming.close();
       }
     };
 
@@ -971,6 +1100,7 @@ class SimpleNode {
             sendPacket(p);
           }
         }
+        outgoing.close();
       }
     };
 
@@ -988,7 +1118,7 @@ class SimpleNode {
     new Thread(outBound).start();
     new Thread(processThread).start();
 
-    Core.sleep(500);
+    Core.sleep(100);
 
     System.out.println("Node started.");
     return this;
