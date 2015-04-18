@@ -11,4 +11,9 @@ public class Core {
     }
   }
 
+
+  public static String[] tokenize(String str) {
+    return str.split("\\s*,\\s*");
+  }
+
 }

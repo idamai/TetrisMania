@@ -25,5 +25,6 @@ public class MasterSlaveTest {
   @Test
   public void testProcess() throws Exception {
     Core.sleep(5000);
+    master.display();
   }
 }

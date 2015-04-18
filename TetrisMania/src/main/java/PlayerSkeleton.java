@@ -623,7 +623,7 @@ class Slave extends SimpleNode {
   private volatile long refTime;
   private String masterIp;
   private int masterPort;
-  private long id;
+  private String id;
   private int state;
 
   public Slave(String masterIp, int masterPort, int port) {
@@ -632,14 +632,16 @@ class Slave extends SimpleNode {
     this.masterPort = masterPort;
     refTime = 0;
     state = State.READY;
-    id = UUID.randomUUID().getMostSignificantBits();
+    id = UUID.randomUUID() + "";
+    System.out.println("Created slave=" + id);
   }
 
 
   private void doPing() {
     if ((System.currentTimeMillis() - refTime) > PING_INTERVAL) {
       refTime = System.currentTimeMillis();
-      this.send(new Packet(masterIp, masterPort, "PING", <<JSON HERE>>)); // TODO add json here
+      String payload = id + "," + port;
+      this.send(new Packet(masterIp, masterPort, "PING", payload));
     }
   }
 
@@ -672,6 +674,16 @@ class Master extends SimpleNode {
   class IpPort {
     public String ip;
     public int port;
+
+    public IpPort(String ip, int port) {
+      this.ip = ip;
+      this.port = port;
+    }
+
+    @Override
+    public String toString() {
+      return "IP=" + ip + " port=" + port;
+    }
   }
 
   public Map<String, IpPort> slaves;
@@ -687,9 +699,37 @@ class Master extends SimpleNode {
     while (hasNext()) {
       Packet p = next();
       if (p.getHeader().equals("PING")) {
-        // TODO implement this
+        // sent as <id>,<port>
+        String[] tokens = Core.tokenize(p.getPayload());
+        String id = tokens[0];
+        String port = tokens[1];
+        slaves.put(id, new IpPort(p.getOrigin(), Integer.parseInt(port)));
       }
     }
+  }
+
+
+  public synchronized String dump() {
+    StringBuilder sb = new StringBuilder();
+    Iterator it = slaves.entrySet().iterator();
+    sb.append("=== Slaves ===\n");
+    while (it.hasNext()) {
+      Map.Entry curr = (Map.Entry) it.next();
+      sb.append("[" + curr.getKey() +"]  " + curr.getValue() + "\n");
+    }
+    sb.append("=== ===");
+    return sb.toString();
+  }
+
+
+  @Override
+  public String toString() {
+    return dump();
+  }
+
+
+  public void display() {
+    System.out.println(dump());
   }
 }
 
