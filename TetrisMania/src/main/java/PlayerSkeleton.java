@@ -1,5 +1,4 @@
 import java.io.*;
-import java.lang.reflect.Array;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -395,26 +394,67 @@ public class PlayerSkeleton {
     return g.score();
   }
 
+
   public static void main(String[] args) {
-    // TODO: Add in proper logging library instead of System.out.println
-    // int score = runState(null);
-    // System.out.println("You have completed "+ score +" rows.");
-    // run genetic algo here
-    Vector<double[]> weightChromosomes = generateWeightChromosome(21);
-    try {
-      double[] results = GeneticAlgorithm(weightChromosomes);
-      for (int i = 0; i < results.length; i++) {
-        System.out.print(results[i] + " ");
+    /** Normal operation **/
+    if (args.length == 0) {
+      // int score = runState(null);
+      // System.out.println("You have completed "+ score +" rows.");
+      // run genetic algo here
+      Vector<double[]> weightChromosomes = generateWeightChromosome(21);
+      try {
+        double[] results = GeneticAlgorithm(weightChromosomes);
+        for (int i = 0; i < results.length; i++) {
+          System.out.print(results[i] + " ");
+        }
+        System.out.println();
+      } catch (IOException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
       }
-      System.out.println();
-    } catch (IOException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      System.out.println("ended");
+      System.exit(0);
     }
-    System.out.println("ended");
-//    System.exit(0);
+
+    /** Else distributed mode **/
+    if (args.length < 2) System.exit(1); // invalid
+    String type = args[0];
+
+    if (type.equals("master")) {
+      /** Distributed mode / MASTER **/
+      int port = Integer.parseInt(args[1]);
+      Master master = new Master(port);
+      try {
+        master.start();
+        Core.sleep(5000);
+        master.display();
+        master.runSlaves();
+        while (!master.isDone);
+        System.out.println("here");
+        System.exit(0);
+      } catch (SocketException e) {
+        e.printStackTrace();
+      }
+
+    } else if (type.equals("slave")) {
+      /** Distributed mode / SLAVE **/
+      if (args.length < 4) System.exit(1); // invalid
+      String masterAddr = args[1];
+      int masterPort = Integer.parseInt(args[2]);
+      int port = Integer.parseInt(args[3]);
+      Slave slave = new Slave(masterAddr, masterPort, port);
+      try {
+        slave.start();
+        while (true) ; // infinite loop, slave never stops!
+      } catch (SocketException e) {
+        e.printStackTrace();
+      }
+    }
+
+    System.exit(-1);
     return;
   }
+
 
   public static void generateTrainData(String[] args) {
     // generateScores("sim_wgts/sim_wgt_space_100.txt",100);
@@ -771,6 +811,7 @@ class Master extends SimpleNode {
       this.ip = ip;
       this.port = port;
     }
+
     @Override
     public String toString() {
       return "IP=" + ip + " port=" + port;
@@ -900,7 +941,7 @@ class Master extends SimpleNode {
           String[] args = Core.tokenize(p.getPayload());
           String slaveId = args[0] + "";
           double score = Double.parseDouble(args[1]);
-          Double[] weights = Core.convertStrArrayToDoubleArr(Arrays.copyOfRange(args, 2, args.length-1));
+          Double[] weights = Core.convertStrArrayToDoubleArr(Arrays.copyOfRange(args, 2, args.length - 1));
           slaveIds.put(slaveId, true); // this ID is done
           results.put(score, weights);
         }
