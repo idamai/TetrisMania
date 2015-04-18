@@ -10,8 +10,8 @@ import java.util.logging.Logger;
  */
 public class PlayerSkeleton {
   private static PlayerSkeleton _instance = null;
-  //  private static int NUM_OF_RANDOM_CHROMOSOME = 10000;
-  private static int NUM_OF_RANDOM_CHROMOSOME = 10000;
+    private static int NUM_OF_RANDOM_CHROMOSOME = 10000;
+//  private static int NUM_OF_RANDOM_CHROMOSOME = 10;
   private static int LOCAL_MAXIMA_THRESHOLD = 5;
   private static double ACCEPTABLE_SCORE_COEFF = 0.8;
   private static double SAMPLING_COEFFICIENT = 0.1;
@@ -1174,3 +1174,116 @@ class SimpleNode {
 }
 
 
+/**
+ * Created by joel on 4/7/15.
+ */
+class Core {
+
+  public static void sleep(long ms) {
+    try {
+      Thread.sleep(ms);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+  }
+
+
+  public static String[] tokenize(String str) {
+    return str.split("\\s*,\\s*");
+  }
+
+  public static double[] concatArray(double[] a, double[] b) {
+    double[] result = new double[a.length + b.length];
+    for (int i = 0; i < a.length; i++) {
+      result[i] = a[i];
+    }
+    for (int i = 0; i < b.length; i++) {
+      result[i + a.length] = b[i];
+    }
+    return result;
+  }
+
+
+  public static Double[] convertStrArrayToDoubleArr(String[] in) {
+    Double[] result = new Double[in.length];
+    for (int i = 0; i < in.length; i++) {
+      result[i] = Double.parseDouble(in[i]);
+    }
+    return result;
+  }
+
+
+  public static double[] convertBigToSmall(Double[] in) {
+    double[] out = new double[in.length];
+    for (int i = 0; i < in.length; i++) {
+      out[i] = in[i];
+    }
+    return out;
+  }
+
+}
+
+
+class Game {
+
+  public State state;
+  protected boolean useGui;
+  protected TFrame screen;
+
+  protected long delay;
+
+
+  public interface Callback {
+    public int[] execute(Game g, State s);
+  }
+
+
+  public Game(boolean useGui, long delay) {
+    init(useGui, delay);
+  }
+
+
+  private void init(boolean useGui, long delay) {
+    this.useGui = useGui;
+    this.delay = delay;
+    state = new State();
+    // do not instantiate if headless
+    if (useGui) {
+      screen = new TFrame(state);
+    }
+  }
+
+
+  private void drawFrame() {
+    if (useGui) {
+      state.draw();
+      state.drawNext(0, 0);
+    }
+  }
+
+
+  public int run(Callback callback) {
+    while (!gameOver()) {
+      int[] nextMove = callback.execute(this,state);
+      tick(nextMove);
+      Core.sleep(delay);
+    }
+    return score();
+  }
+
+
+  public void tick(int[] nextMove) {
+    state.makeMove(nextMove);
+  }
+
+
+  public boolean gameOver() {
+    return state.hasLost();
+  }
+
+
+  public int score() {
+    return state.getRowsCleared();
+  }
+
+}
